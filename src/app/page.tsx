@@ -1,65 +1,111 @@
+import { auth } from "@clerk/nextjs/server";
+import { BackgroundPaths } from "@/components/ui/background-paths";
+import { ContainerScroll } from "@/components/ui/container-scroll-animation";
+import { CinematicFooter } from "@/components/ui/motion-footer";
+import { Button } from "@/components/ui/button";
 import Image from "next/image";
+import Link from "next/link";
+import { Wine, ArrowRight } from "lucide-react";
 
-export default function Home() {
+export default async function Home() {
+  const { userId } = await auth();
+  const user = userId; // Fallback mapping for the rest of the file
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+    <div className="relative w-full bg-[#0a0a0f] min-h-screen overflow-x-hidden">
+      <main className="relative z-10 w-full min-h-[100vh] bg-black flex flex-col shadow-[0px_40px_100px_rgba(0,0,0,0.5)] rounded-b-[2.5rem] overflow-hidden border-b border-white/10">
+         {/* Navbar */}
+         <nav className="w-full flex items-center justify-between px-6 py-4 md:px-12 fixed top-0 z-50 bg-black/50 backdrop-blur border-b border-white/10">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-white">
+                 <Wine size={20} className="text-black" />
+              </div>
+              <span className="font-bold text-lg tracking-wide text-white">Winery OS</span>
+            </div>
+            <div>
+              {user ? (
+                 <Link href="/dashboard" className="px-5 py-2.5 rounded-full text-sm font-semibold bg-white text-black transition hover:bg-gray-200">
+                    Dashboard
+                 </Link>
+              ) : (
+                 <div className="flex items-center gap-4">
+                   <Link href="/sign-in" className="text-sm font-medium text-gray-300 hover:text-white transition">Sign In</Link>
+                   <Link href="/sign-up" className="px-5 py-2.5 rounded-full text-sm font-semibold bg-white text-black transition hover:bg-gray-200">
+                     Get Started
+                   </Link>
+                 </div>
+              )}
+            </div>
+         </nav>
+
+         {/* Floating Background Paths Hero */}
+         <div className="-mt-16">
+           <BackgroundPaths 
+              title="Winery OS Intelligence"
+              actionButton={
+                  user ? (
+                    <Link href="/dashboard">
+                      <Button
+                          variant="ghost"
+                          className="rounded-[1.15rem] px-8 py-6 text-lg font-semibold backdrop-blur-md 
+                          bg-white/95 hover:bg-white/100 dark:bg-black/95 dark:hover:bg-black/100 
+                          text-black dark:text-white transition-all duration-300 
+                          group-hover:-translate-y-0.5 border border-black/10 dark:border-white/10
+                          hover:shadow-md dark:hover:shadow-neutral-800/50"
+                      >
+                          <span className="opacity-90 group-hover:opacity-100 transition-opacity">Enter Workspace</span>
+                          <span className="ml-3 opacity-70 group-hover:opacity-100 group-hover:translate-x-1.5 transition-all duration-300">→</span>
+                      </Button>
+                    </Link>
+                  ) : (
+                    <Link href="/sign-up">
+                      <Button
+                          variant="ghost"
+                          className="rounded-[1.15rem] px-8 py-6 text-lg font-semibold backdrop-blur-md 
+                          bg-white/95 hover:bg-white/100 dark:bg-black/95 dark:hover:bg-black/100 
+                          text-black dark:text-white transition-all duration-300 
+                          group-hover:-translate-y-0.5 border border-black/10 dark:border-white/10
+                          hover:shadow-md dark:hover:shadow-neutral-800/50"
+                      >
+                          <span className="opacity-90 group-hover:opacity-100 transition-opacity">Discover Excellence</span>
+                          <span className="ml-3 opacity-70 group-hover:opacity-100 group-hover:translate-x-1.5 transition-all duration-300">→</span>
+                      </Button>
+                    </Link>
+                  )
+              }
+           />
+         </div>
+
+         {/* Hero Scroll Animation */}
+         <div className="flex flex-col items-center justify-center overflow-hidden pb-[100px] pt-[20px] bg-black">
+           <ContainerScroll
+             titleComponent={
+               <>
+                 <h1 className="text-4xl md:text-5xl font-semibold mb-2 text-white">
+                   Unleash the full potential of your <br />
+                   <span className="text-5xl md:text-[6rem] font-bold mt-2 leading-none inline-block pb-2 tracking-tight text-white">
+                     Winery Operations
+                   </span>
+                 </h1>
+               </>
+             }
+           >
+             <Image
+               src={`https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?q=80&w=2940&auto=format&fit=crop`}
+               alt="Classic Red Wine Glass"
+               height={1080}
+               width={1920}
+               className="mx-auto rounded-2xl object-cover h-full object-left-top"
+               draggable={false}
+               priority
+               unoptimized
+
+             />
+           </ContainerScroll>
+         </div>
       </main>
+
+      <CinematicFooter />
     </div>
   );
 }

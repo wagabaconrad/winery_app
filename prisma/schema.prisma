@@ -1,0 +1,190 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ─────────────────────────────────────────────
+
+enum CapitalType {
+  INITIAL
+  ADDED
+  WITHDRAWN
+}
+
+enum StockCategory {
+  RAW
+  FINISHED
+}
+
+enum ExpenseCategory {
+  TRANSPORT
+  RENT
+  LABOR
+  PACKAGING
+  UTILITIES
+  MARKETING
+  OTHER
+}
+
+// ─── Models ────────────────────────────────────────────
+
+model User {
+  id         String     @id @default(uuid())
+  email      String     @unique
+  clerkId    String     @unique // Clerk Auth user ID
+  fullName   String?
+  createdAt  DateTime   @default(now())
+  businesses Business[]
+
+  @@index([clerkId])
+}
+
+model Business {
+  id             String           @id @default(uuid())
+  userId         String
+  name           String
+  currency       String           @default("UGX")
+  openingCapital Float            @default(0)
+  createdAt      DateTime         @default(now())
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  capitalEntries CapitalEntry[]
+  stockItems     StockItem[]
+  batches        ProductionBatch[]
+  sales          Sale[]
+  expenses       Expense[]
+  customers      Customer[]
+
+  @@index([userId])
+}
+
+model CapitalEntry {
+  id         String      @id @default(uuid())
+  businessId String
+  amount     Float
+  type       CapitalType
+  note       String?
+  date       DateTime    @default(now())
+  business   Business    @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId])
+}
+
+model StockItem {
+  id         String             @id @default(uuid())
+  businessId String
+  name       String
+  category   StockCategory
+  quantity   Float              @default(0)
+  unit       String             @default("units")
+  unitCost   Float              @default(0)
+  totalValue Float              @default(0)
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+  business   Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  usages     RawMaterialUsage[]
+
+  @@index([businessId])
+}
+
+model ProductionBatch {
+  id             String             @id @default(uuid())
+  businessId     String
+  name           String
+  totalCost      Float              @default(0)
+  outputQuantity Float              @default(0)
+  costPerUnit    Float              @default(0)
+  status         String             @default("active") // active, completed
+  createdAt      DateTime           @default(now())
+  business       Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  materials      RawMaterialUsage[]
+  expenses       Expense[]
+
+  @@index([businessId])
+}
+
+model RawMaterialUsage {
+  id           String          @id @default(uuid())
+  batchId      String
+  stockItemId  String
+  quantityUsed Float
+  cost         Float
+  batch        ProductionBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  stockItem    StockItem       @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
+
+  @@index([batchId])
+  @@index([stockItemId])
+}
+
+model Customer {
+  id         String   @id @default(uuid())
+  businessId String
+  name       String
+  phone      String?
+  email      String?
+  createdAt  DateTime @default(now())
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  sales      Sale[]
+
+  @@index([businessId])
+}
+
+model Sale {
+  id          String    @id @default(uuid())
+  businessId  String
+  customerId  String?
+  totalAmount Float
+  costOfGoods Float     @default(0)
+  profit      Float     @default(0)
+  date        DateTime  @default(now())
+  business    Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  customer    Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  items       SaleItem[]
+  invoice     Invoice?
+
+  @@index([businessId])
+  @@index([customerId])
+  @@index([date])
+}
+
+model SaleItem {
+  id          String @id @default(uuid())
+  saleId      String
+  productName String
+  quantity    Float
+  unitPrice   Float
+  unitCost    Float  @default(0)
+  total       Float
+  sale        Sale   @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  @@index([saleId])
+}
+
+model Expense {
+  id            String          @id @default(uuid())
+  businessId    String
+  category      ExpenseCategory
+  description   String?
+  amount        Float
+  linkedBatchId String?
+  date          DateTime        @default(now())
+  business      Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  linkedBatch   ProductionBatch? @relation(fields: [linkedBatchId], references: [id], onDelete: SetNull)
+
+  @@index([businessId])
+  @@index([linkedBatchId])
+  @@index([date])
+}
+
+model Invoice {
+  id            String   @id @default(uuid())
+  saleId        String   @unique
+  invoiceNumber String   @unique
+  pdfData       String?  @db.Text // Base64 PDF data
+  createdAt     DateTime @default(now())
+  sale          Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceNumber])
+}
