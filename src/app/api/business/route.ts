@@ -24,16 +24,21 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, currency = "UGX", openingCapital = 0 } = body;
+    const { name, currency = "UGX", openingCapital = 0, businessType = "WINE" } = body;
 
     if (!name) {
       return NextResponse.json({ error: "Business name is required" }, { status: 400 });
+    }
+
+    if (businessType !== "WINE" && businessType !== "FOOD") {
+      return NextResponse.json({ error: "Business type must be WINE or FOOD" }, { status: 400 });
     }
 
     const business = await prisma.business.create({
       data: {
         userId: data.user.id,
         name,
+        businessType,
         currency,
         openingCapital: parseFloat(openingCapital),
       },

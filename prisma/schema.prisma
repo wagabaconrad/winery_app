@@ -8,6 +8,11 @@ datasource db {
 
 // ─── Enums ─────────────────────────────────────────────
 
+enum BusinessType {
+  WINE
+  FOOD
+}
+
 enum CapitalType {
   INITIAL
   ADDED
@@ -26,6 +31,23 @@ enum ExpenseCategory {
   PACKAGING
   UTILITIES
   MARKETING
+  EVENT
+  OTHER
+}
+
+enum EventStatus {
+  DRAFT
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+enum EventType {
+  WEDDING
+  BIRTHDAY
+  CORPORATE
+  PARTY
+  FUNERAL
   OTHER
 }
 
@@ -46,6 +68,7 @@ model Business {
   id             String           @id @default(uuid())
   userId         String
   name           String
+  businessType   BusinessType     @default(WINE)
   currency       String           @default("UGX")
   openingCapital Float            @default(0)
   createdAt      DateTime         @default(now())
@@ -56,6 +79,7 @@ model Business {
   sales          Sale[]
   expenses       Expense[]
   customers      Customer[]
+  events         Event[]
 
   @@index([userId])
 }
@@ -96,6 +120,9 @@ model ProductionBatch {
   totalCost      Float              @default(0)
   outputQuantity Float              @default(0)
   costPerUnit    Float              @default(0)
+  bottleCount    Int?
+  jerrycanCount  Int?
+  canCount       Int?
   status         String             @default("active") // active, completed
   createdAt      DateTime           @default(now())
   business       Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
@@ -127,6 +154,7 @@ model Customer {
   createdAt  DateTime @default(now())
   business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
   sales      Sale[]
+  events     Event[]
 
   @@index([businessId])
 }
@@ -169,12 +197,15 @@ model Expense {
   description   String?
   amount        Float
   linkedBatchId String?
+  linkedEventId String?
   date          DateTime        @default(now())
   business      Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
   linkedBatch   ProductionBatch? @relation(fields: [linkedBatchId], references: [id], onDelete: SetNull)
+  linkedEvent   Event?          @relation(fields: [linkedEventId], references: [id], onDelete: SetNull)
 
   @@index([businessId])
   @@index([linkedBatchId])
+  @@index([linkedEventId])
   @@index([date])
 }
 
@@ -186,5 +217,60 @@ model Invoice {
   createdAt     DateTime @default(now())
   sale          Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
 
+  @@index([invoiceNumber])
+}
+
+// ─── Food/Catering Models ──────────────────────────────
+
+model Event {
+  id             String         @id @default(uuid())
+  businessId     String
+  customerId     String?
+  eventType      EventType
+  name           String
+  eventDate      DateTime?
+  customerBudget Float          @default(0)
+  plateCost      Float          @default(0)
+  plateCount     Int            @default(0)
+  totalCost      Float          @default(0)
+  status         EventStatus    @default(DRAFT)
+  notes          String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  business       Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  customer       Customer?      @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  items          EventItem[]
+  invoices       EventInvoice[]
+  expenses       Expense[]
+
+  @@index([businessId])
+  @@index([customerId])
+  @@index([status])
+}
+
+model EventItem {
+  id        String @id @default(uuid())
+  eventId   String
+  name      String
+  quantity  Float  @default(1)
+  unit      String @default("units")
+  unitCost  Float  @default(0)
+  totalCost Float  @default(0)
+  event     Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+}
+
+model EventInvoice {
+  id            String   @id @default(uuid())
+  eventId       String
+  invoiceNumber String   @unique
+  budgetAmount  Float
+  totalCost     Float
+  pdfData       String?  @db.Text
+  createdAt     DateTime @default(now())
+  event         Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
   @@index([invoiceNumber])
 }

@@ -2,10 +2,11 @@
 
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Wallet, Plus, ArrowUpCircle, ArrowDownCircle } from "lucide-react";
+import { Wallet, Plus, ArrowUpCircle, ArrowDownCircle, AlertTriangle } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import Modal from "@/components/Modal";
 import { Button, LoadingSpinner } from "@/components/ui";
+import { useBusinessContext } from "@/contexts/BusinessContext";
 
 interface CapitalEntry {
   id: string;
@@ -22,6 +23,8 @@ export default function CapitalPage() {
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({ amount: "", type: "ADDED", note: "" });
   const [saving, setSaving] = useState(false);
+  const { businessType } = useBusinessContext();
+  const isWine = businessType === "WINE";
 
   useEffect(() => { fetchCapital(); }, []);
 
@@ -59,13 +62,36 @@ export default function CapitalPage() {
     <div className="space-y-6 animate-fade-in">
       <PageHeader
         title="Capital Management"
-        description="Track your business capital — additions and withdrawals"
+        description={isWine ? "Track your business capital — additions only" : "Track your business capital — additions and withdrawals"}
         action={
           <Button onClick={() => setShowModal(true)}>
             <Plus size={16} /> Add Entry
           </Button>
         }
       />
+
+      {/* Wine Capital Warning */}
+      {isWine && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-start gap-3 p-4 rounded-xl"
+          style={{
+            background: "rgba(245, 158, 11, 0.08)",
+            border: "1px solid rgba(245, 158, 11, 0.25)",
+          }}
+        >
+          <AlertTriangle size={18} className="mt-0.5 flex-shrink-0" style={{ color: "#f59e0b" }} />
+          <div>
+            <p className="text-sm font-medium" style={{ color: "#f59e0b" }}>
+              Capital is irreversible
+            </p>
+            <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+              For wine businesses, capital can only be topped up, never withdrawn. Please double-check amounts before adding.
+            </p>
+          </div>
+        </motion.div>
+      )}
 
       {/* Total Capital Card */}
       <motion.div
@@ -153,7 +179,7 @@ export default function CapitalPage() {
               style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }}
             >
               <option value="ADDED">Add Capital</option>
-              <option value="WITHDRAWN">Withdraw Capital</option>
+              {!isWine && <option value="WITHDRAWN">Withdraw Capital</option>}
             </select>
           </div>
 

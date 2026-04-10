@@ -29,6 +29,9 @@ interface Batch {
   totalCost: number;
   outputQuantity: number;
   costPerUnit: number;
+  bottleCount: number | null;
+  jerrycanCount: number | null;
+  canCount: number | null;
   status: string;
   createdAt: string;
   materials: MaterialUsage[];
@@ -46,6 +49,9 @@ export default function BatchesPage() {
   const [form, setForm] = useState({
     name: "",
     outputQuantity: "",
+    bottleCount: "",
+    jerrycanCount: "",
+    canCount: "",
     materials: [{ stockItemId: "", quantityUsed: "", unitCost: "" }],
     expenses: [{ category: "LABOR", amount: "", description: "" }],
   });
@@ -101,6 +107,9 @@ export default function BatchesPage() {
         body: JSON.stringify({
           name: form.name,
           outputQuantity: form.outputQuantity,
+          bottleCount: form.bottleCount,
+          jerrycanCount: form.jerrycanCount,
+          canCount: form.canCount,
           materials: validMaterials,
           expenses: validExpenses,
         }),
@@ -109,7 +118,7 @@ export default function BatchesPage() {
       if (res.ok) {
         setShowModal(false);
         setForm({
-          name: "", outputQuantity: "",
+          name: "", outputQuantity: "", bottleCount: "", jerrycanCount: "", canCount: "",
           materials: [{ stockItemId: "", quantityUsed: "", unitCost: "" }],
           expenses: [{ category: "LABOR", amount: "", description: "" }],
         });
@@ -183,6 +192,29 @@ export default function BatchesPage() {
 
               {expanded === batch.id && (
                 <div className="px-4 pb-4 space-y-3" style={{ borderTop: "1px solid var(--border-color)" }}>
+                  {/* Product Forms Breakdown */}
+                  {(batch.bottleCount || batch.jerrycanCount || batch.canCount) && (
+                    <div className="pt-3">
+                      <p className="text-xs font-medium mb-2" style={{ color: "var(--text-secondary)" }}>Product Forms</p>
+                      <div className="flex gap-3">
+                        {batch.bottleCount && batch.bottleCount > 0 && (
+                          <div className="px-3 py-2 rounded-lg text-xs" style={{ background: "rgba(124,58,237,0.1)", color: "#a78bfa" }}>
+                            {batch.bottleCount} Bottles
+                          </div>
+                        )}
+                        {batch.jerrycanCount && batch.jerrycanCount > 0 && (
+                          <div className="px-3 py-2 rounded-lg text-xs" style={{ background: "rgba(59,130,246,0.1)", color: "#93c5fd" }}>
+                            {batch.jerrycanCount} Jerrycans
+                          </div>
+                        )}
+                        {batch.canCount && batch.canCount > 0 && (
+                          <div className="px-3 py-2 rounded-lg text-xs" style={{ background: "rgba(16,185,129,0.1)", color: "#6ee7b7" }}>
+                            {batch.canCount} Cans
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                   <div className="pt-3">
                     <p className="text-xs font-medium mb-2" style={{ color: "var(--text-secondary)" }}>Raw Materials Used</p>
                     {batch.materials.map((m) => (
@@ -231,6 +263,26 @@ export default function BatchesPage() {
               <label className="block text-xs font-medium" style={{ color: "var(--text-secondary)" }}>Output Quantity</label>
               <input type="number" value={form.outputQuantity} onChange={(e) => setForm({ ...form, outputQuantity: e.target.value })} placeholder="e.g. 100 bottles" required min="1" className="w-full px-4 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }} />
             </div>
+          </div>
+
+          {/* Product Forms */}
+          <div>
+            <p className="text-xs font-medium mb-2" style={{ color: "var(--text-secondary)" }}>Product Forms (how the output is packaged)</p>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="space-y-1">
+                <label className="block text-[10px]" style={{ color: "var(--text-muted)" }}>Bottles</label>
+                <input type="number" value={form.bottleCount} onChange={(e) => setForm({ ...form, bottleCount: e.target.value })} placeholder="0" min="0" className="w-full px-3 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }} />
+              </div>
+              <div className="space-y-1">
+                <label className="block text-[10px]" style={{ color: "var(--text-muted)" }}>Jerrycans</label>
+                <input type="number" value={form.jerrycanCount} onChange={(e) => setForm({ ...form, jerrycanCount: e.target.value })} placeholder="0" min="0" className="w-full px-3 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }} />
+              </div>
+              <div className="space-y-1">
+                <label className="block text-[10px]" style={{ color: "var(--text-muted)" }}>Cans</label>
+                <input type="number" value={form.canCount} onChange={(e) => setForm({ ...form, canCount: e.target.value })} placeholder="0" min="0" className="w-full px-3 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }} />
+              </div>
+            </div>
+            <p className="text-[10px] mt-1" style={{ color: "var(--text-muted)" }}>These will automatically be added to your inventory as finished goods.</p>
           </div>
 
           {/* Materials */}

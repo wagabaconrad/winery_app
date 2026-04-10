@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getBusinessId } from "@/lib/auth";
+import { getAuthenticatedUser } from "@/lib/auth";
 
 export async function GET() {
   try {
-    const businessId = await getBusinessId();
+    const authData = await getAuthenticatedUser();
+    if (!authData) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const businessId = authData.business?.id;
     if (!businessId) return NextResponse.json({ error: "No business found" }, { status: 404 });
 
     const entries = await prisma.capitalEntry.findMany({
@@ -27,7 +29,9 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const businessId = await getBusinessId();
+    const authData = await getAuthenticatedUser();
+    if (!authData) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const businessId = authData.business?.id;
     if (!businessId) return NextResponse.json({ error: "No business found" }, { status: 404 });
 
     const body = await request.json();
@@ -39,6 +43,14 @@ export async function POST(request: NextRequest) {
 
     if (!["INITIAL", "ADDED", "WITHDRAWN"].includes(type)) {
       return NextResponse.json({ error: "Invalid type" }, { status: 400 });
+    }
+
+    // Wine businesses cannot withdraw capital
+    if (authData.business?.businessType === "WINE" && type === "WITHDRAWN") {
+      return NextResponse.json(
+        { error: "Wine businesses cannot withdraw capital. Capital can only be topped up." },
+        { status: 400 }
+      );
     }
 
     const parsedAmount = parseFloat(amount);

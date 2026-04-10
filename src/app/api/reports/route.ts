@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getBusinessId } from "@/lib/auth";
+import { getAuthenticatedUser } from "@/lib/auth";
 import { startOfDay, startOfWeek, startOfMonth, startOfYear, format } from "date-fns";
 
 export async function GET(request: NextRequest) {
   try {
-    const businessId = await getBusinessId();
+    const authData = await getAuthenticatedUser();
+    if (!authData) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const businessId = authData.business?.id;
     if (!businessId) return NextResponse.json({ error: "No business found" }, { status: 404 });
+    const businessType = authData.business?.businessType || "WINE";
 
     const { searchParams } = new URL(request.url);
     const period = searchParams.get("period") || "monthly";
@@ -84,7 +87,7 @@ export async function GET(request: NextRequest) {
       amount,
     }));
 
-    return NextResponse.json({
+    const response: Record<string, unknown> = {
       period,
       startDate: startDate.toISOString(),
       totalRevenue,
@@ -96,7 +99,34 @@ export async function GET(request: NextRequest) {
       chartData,
       bestSellers,
       expenseBreakdown,
-    });
+      businessType,
+    };
+
+    // Add event metrics for food businesses
+    if (businessType === "FOOD") {
+      const events = await prisma.event.findMany({
+        where: { businessId, createdAt: { gte: startDate } },
+      });
+      const eventsByStatus: Record<string, number> = {};
+      let totalEventRevenue = 0;
+      let totalPlates = 0;
+      for (const event of events) {
+        eventsByStatus[event.status] = (eventsByStatus[event.status] || 0) + 1;
+        if (event.status === "CONFIRMED" || event.status === "COMPLETED") {
+          totalEventRevenue += event.customerBudget;
+          totalPlates += event.plateCount;
+        }
+      }
+      response.eventCount = events.length;
+      response.eventsByStatus = eventsByStatus;
+      response.totalEventRevenue = totalEventRevenue;
+      response.totalPlates = totalPlates;
+      response.avgPlateCost = totalPlates > 0
+        ? Math.round(events.reduce((s, e) => s + e.totalCost, 0) / totalPlates)
+        : 0;
+    }
+
+    return NextResponse.json(response);
   } catch (error) {
     console.error("GET /api/reports:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

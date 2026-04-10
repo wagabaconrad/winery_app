@@ -102,10 +102,26 @@ function round(n: number, decimals: number = 2): number {
 }
 
 /**
- * Generates next invoice number. E.g. INV-0001, INV-0002, etc.
+ * Generates next invoice number with configurable prefix.
+ * E.g. INV-0001, INV-0002, EVT-0001, etc.
  */
-export function generateInvoiceNumber(lastNumber: string | null): string {
-  if (!lastNumber) return "INV-0001";
-  const numPart = parseInt(lastNumber.replace("INV-", ""), 10);
-  return `INV-${String(numPart + 1).padStart(4, "0")}`;
+export function generateInvoiceNumber(lastNumber: string | null, prefix: string = "INV"): string {
+  if (!lastNumber) return `${prefix}-0001`;
+  const numPart = parseInt(lastNumber.replace(`${prefix}-`, ""), 10);
+  return `${prefix}-${String(numPart + 1).padStart(4, "0")}`;
+}
+
+/**
+ * Calculates event profit (budget minus total cost).
+ */
+export function calculateEventProfit(customerBudget: number, totalCost: number): number {
+  return round(customerBudget - totalCost);
+}
+
+/**
+ * Calculates cost per plate for catering events.
+ */
+export function calculatePlateCost(totalCost: number, plateCount: number): number {
+  if (plateCount <= 0) return 0;
+  return round(totalCost / plateCount);
 }

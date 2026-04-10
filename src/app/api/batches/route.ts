@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     if (!businessId) return NextResponse.json({ error: "No business found" }, { status: 404 });
 
     const body = await request.json();
-    const { name, outputQuantity, materials, expenses: linkedExpenses = [] } = body;
+    const { name, outputQuantity, materials, expenses: linkedExpenses = [], bottleCount, jerrycanCount, canCount } = body;
 
     if (!name || !outputQuantity || !materials?.length) {
       return NextResponse.json(
@@ -81,6 +81,10 @@ export async function POST(request: NextRequest) {
     // Create batch in a transaction
     const batch = await prisma.$transaction(async (tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0]) => {
       // Create the batch
+      const parsedBottles = bottleCount ? parseInt(bottleCount) : null;
+      const parsedJerrycans = jerrycanCount ? parseInt(jerrycanCount) : null;
+      const parsedCans = canCount ? parseInt(canCount) : null;
+
       const newBatch = await tx.productionBatch.create({
         data: {
           businessId,
@@ -88,6 +92,9 @@ export async function POST(request: NextRequest) {
           outputQuantity: parseFloat(outputQuantity),
           totalCost,
           costPerUnit,
+          bottleCount: parsedBottles && parsedBottles > 0 ? parsedBottles : null,
+          jerrycanCount: parsedJerrycans && parsedJerrycans > 0 ? parsedJerrycans : null,
+          canCount: parsedCans && parsedCans > 0 ? parsedCans : null,
         },
       });
 
@@ -127,6 +134,45 @@ export async function POST(request: NextRequest) {
             linkedBatchId: newBatch.id,
           },
         });
+      }
+
+      // Auto-create/update FINISHED stock items for wine product forms
+      const productForms = [
+        { name: "Wine Bottles", count: parsedBottles, unit: "bottles" },
+        { name: "Wine Jerrycans", count: parsedJerrycans, unit: "jerrycans" },
+        { name: "Wine Cans", count: parsedCans, unit: "cans" },
+      ];
+
+      for (const pf of productForms) {
+        if (pf.count && pf.count > 0) {
+          const existing = await tx.stockItem.findFirst({
+            where: { businessId, name: pf.name, category: "FINISHED" },
+          });
+
+          if (existing) {
+            const newQty = existing.quantity + pf.count;
+            await tx.stockItem.update({
+              where: { id: existing.id },
+              data: {
+                quantity: newQty,
+                unitCost: costPerUnit,
+                totalValue: newQty * costPerUnit,
+              },
+            });
+          } else {
+            await tx.stockItem.create({
+              data: {
+                businessId,
+                name: pf.name,
+                category: "FINISHED",
+                quantity: pf.count,
+                unit: pf.unit,
+                unitCost: costPerUnit,
+                totalValue: pf.count * costPerUnit,
+              },
+            });
+          }
+        }
       }
 
       return newBatch;

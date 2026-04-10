@@ -12,7 +12,11 @@ import {
   ShoppingCart,
   FlaskConical,
   AlertTriangle,
+  Wine,
+  UtensilsCrossed,
+  CalendarDays,
 } from "lucide-react";
+import { useBusinessContext } from "@/contexts/BusinessContext";
 import {
   AreaChart,
   Area,
@@ -48,6 +52,19 @@ interface DashboardData {
     totalCost: number;
   }[];
   salesCount: number;
+  // Food business fields
+  draftEvents?: number;
+  confirmedEvents?: number;
+  completedEvents?: number;
+  recentEvents?: {
+    id: string;
+    name: string;
+    eventType: string;
+    status: string;
+    customerBudget: number;
+    eventDate: string | null;
+    customer: { name: string } | null;
+  }[];
 }
 
 export default function DashboardPage() {
@@ -57,8 +74,10 @@ export default function DashboardPage() {
   const [businessName, setBusinessName] = useState("");
   const [currency, setCurrency] = useState("UGX");
   const [openingCapital, setOpeningCapital] = useState("");
+  const [businessType, setBusinessType] = useState<"WINE" | "FOOD">("WINE");
   const [creating, setCreating] = useState(false);
   const router = useRouter();
+  const { refresh: refreshBusiness, businessType: currentBusinessType } = useBusinessContext();
 
   useEffect(() => {
     fetchDashboard();
@@ -96,9 +115,10 @@ export default function DashboardPage() {
       const res = await fetch("/api/business", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: businessName, currency, openingCapital }),
+        body: JSON.stringify({ name: businessName, currency, openingCapital, businessType }),
       });
       if (res.ok) {
+        await refreshBusiness();
         setNeedsBusiness(false);
         setLoading(true);
         fetchDashboard();
@@ -126,10 +146,53 @@ export default function DashboardPage() {
               Welcome to Winery OS
             </h2>
             <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
-              Set up your business to get started.
+              Choose your business type and set up to get started.
             </p>
 
-            <form onSubmit={handleCreateBusiness} className="space-y-4">
+            <form onSubmit={handleCreateBusiness} className="space-y-5">
+              {/* Business Type Selector */}
+              <div className="space-y-2">
+                <label className="block text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
+                  What type of business are you?
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setBusinessType("WINE")}
+                    className="flex flex-col items-center gap-2 p-4 rounded-xl transition-all cursor-pointer"
+                    style={{
+                      background: businessType === "WINE" ? "rgba(124, 58, 237, 0.15)" : "var(--bg-primary)",
+                      border: businessType === "WINE" ? "2px solid #7c3aed" : "1px solid var(--border-color)",
+                    }}
+                  >
+                    <Wine size={28} style={{ color: businessType === "WINE" ? "#7c3aed" : "var(--text-muted)" }} />
+                    <span className="text-sm font-semibold" style={{ color: businessType === "WINE" ? "#7c3aed" : "var(--text-primary)" }}>
+                      Wine Business
+                    </span>
+                    <span className="text-xs text-center" style={{ color: "var(--text-muted)" }}>
+                      Production, batches, inventory & sales
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBusinessType("FOOD")}
+                    className="flex flex-col items-center gap-2 p-4 rounded-xl transition-all cursor-pointer"
+                    style={{
+                      background: businessType === "FOOD" ? "rgba(16, 185, 129, 0.15)" : "var(--bg-primary)",
+                      border: businessType === "FOOD" ? "2px solid #10b981" : "1px solid var(--border-color)",
+                    }}
+                  >
+                    <UtensilsCrossed size={28} style={{ color: businessType === "FOOD" ? "#10b981" : "var(--text-muted)" }} />
+                    <span className="text-sm font-semibold" style={{ color: businessType === "FOOD" ? "#10b981" : "var(--text-primary)" }}>
+                      Food / Catering
+                    </span>
+                    <span className="text-xs text-center" style={{ color: "var(--text-muted)" }}>
+                      Events, catering, budgets & invoices
+                    </span>
+                  </button>
+                </div>
+              </div>
+
               <div className="space-y-1.5">
                 <label className="block text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
                   Business Name
@@ -138,7 +201,7 @@ export default function DashboardPage() {
                   type="text"
                   value={businessName}
                   onChange={(e) => setBusinessName(e.target.value)}
-                  placeholder="e.g. Kampala Winery"
+                  placeholder={businessType === "WINE" ? "e.g. Kampala Winery" : "e.g. Grace's Catering"}
                   required
                   className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
                   style={{
@@ -194,6 +257,19 @@ export default function DashboardPage() {
                   />
                 </div>
               </div>
+
+              {/* Capital Warning */}
+              {businessType === "WINE" && openingCapital && parseFloat(openingCapital) > 0 && (
+                <div
+                  className="flex items-start gap-2 p-3 rounded-xl text-xs"
+                  style={{ background: "rgba(245, 158, 11, 0.1)", border: "1px solid rgba(245, 158, 11, 0.3)", color: "#f59e0b" }}
+                >
+                  <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" />
+                  <span>
+                    <strong>Be careful:</strong> Initial capital is irreversible for wine businesses. It can only be topped up, never reduced. Double-check your amount before proceeding.
+                  </span>
+                </div>
+              )}
 
               <Button type="submit" loading={creating} className="w-full">
                 Create Business
@@ -312,57 +388,59 @@ export default function DashboardPage() {
           </h3>
 
           <div className="space-y-3">
-            <div
-              className="flex items-center gap-3 p-3 rounded-xl"
-              style={{ background: "var(--bg-primary)" }}
-            >
-              <Package size={18} style={{ color: "#3b82f6" }} />
-              <div className="flex-1">
-                <p className="text-xs" style={{ color: "var(--text-muted)" }}>Stock Items</p>
-                <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-                  {data.stockItemCount}
-                </p>
+            {currentBusinessType !== "FOOD" && (
+              <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background: "var(--bg-primary)" }}>
+                <Package size={18} style={{ color: "#3b82f6" }} />
+                <div className="flex-1">
+                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>Stock Items</p>
+                  <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{data.stockItemCount}</p>
+                </div>
               </div>
-            </div>
+            )}
 
-            <div
-              className="flex items-center gap-3 p-3 rounded-xl"
-              style={{ background: "var(--bg-primary)" }}
-            >
+            <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background: "var(--bg-primary)" }}>
               <ShoppingCart size={18} style={{ color: "#10b981" }} />
               <div className="flex-1">
                 <p className="text-xs" style={{ color: "var(--text-muted)" }}>Total Sales</p>
-                <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-                  {data.salesCount}
-                </p>
+                <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{data.salesCount}</p>
               </div>
             </div>
 
-            <div
-              className="flex items-center gap-3 p-3 rounded-xl"
-              style={{ background: "var(--bg-primary)" }}
-            >
-              <FlaskConical size={18} style={{ color: "#a855f7" }} />
-              <div className="flex-1">
-                <p className="text-xs" style={{ color: "var(--text-muted)" }}>Active Batches</p>
-                <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-                  {data.activeBatches.length}
-                </p>
-              </div>
-            </div>
-
-            <div
-              className="flex items-center gap-3 p-3 rounded-xl"
-              style={{ background: "var(--bg-primary)" }}
-            >
-              <Wallet size={18} style={{ color: "#f59e0b" }} />
-              <div className="flex-1">
-                <p className="text-xs" style={{ color: "var(--text-muted)" }}>Stock Value</p>
-                <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-                  {data.totalStockValue.toLocaleString()}
-                </p>
-              </div>
-            </div>
+            {currentBusinessType === "FOOD" ? (
+              <>
+                <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background: "var(--bg-primary)" }}>
+                  <CalendarDays size={18} style={{ color: "#3b82f6" }} />
+                  <div className="flex-1">
+                    <p className="text-xs" style={{ color: "var(--text-muted)" }}>Confirmed Events</p>
+                    <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{data.confirmedEvents || 0}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background: "var(--bg-primary)" }}>
+                  <CalendarDays size={18} style={{ color: "#f59e0b" }} />
+                  <div className="flex-1">
+                    <p className="text-xs" style={{ color: "var(--text-muted)" }}>Draft Events</p>
+                    <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{data.draftEvents || 0}</p>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background: "var(--bg-primary)" }}>
+                  <FlaskConical size={18} style={{ color: "#a855f7" }} />
+                  <div className="flex-1">
+                    <p className="text-xs" style={{ color: "var(--text-muted)" }}>Active Batches</p>
+                    <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{data.activeBatches.length}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background: "var(--bg-primary)" }}>
+                  <Wallet size={18} style={{ color: "#f59e0b" }} />
+                  <div className="flex-1">
+                    <p className="text-xs" style={{ color: "var(--text-muted)" }}>Stock Value</p>
+                    <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{data.totalStockValue.toLocaleString()}</p>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </motion.div>
       </div>
@@ -418,7 +496,7 @@ export default function DashboardPage() {
           )}
         </motion.div>
 
-        {/* Low Stock Alert */}
+        {/* Right panel: Low Stock (Wine) or Upcoming Events (Food) */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -426,42 +504,96 @@ export default function DashboardPage() {
           className="rounded-2xl p-5"
           style={{ background: "var(--bg-card)", border: "1px solid var(--border-color)" }}
         >
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-              Low Stock Alerts
-            </h3>
-            <button
-              onClick={() => router.push("/stock")}
-              className="text-xs font-medium"
-              style={{ color: "var(--accent-secondary)" }}
-            >
-              Manage stock
-            </button>
-          </div>
-          {data.lowStockItems.length > 0 ? (
-            <div className="space-y-2">
-              {data.lowStockItems.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex items-center gap-3 p-3 rounded-xl"
-                  style={{ background: "var(--bg-primary)" }}
+          {currentBusinessType === "FOOD" ? (
+            <>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                  Upcoming Events
+                </h3>
+                <button
+                  onClick={() => router.push("/events")}
+                  className="text-xs font-medium"
+                  style={{ color: "var(--accent-secondary)" }}
                 >
-                  <AlertTriangle size={16} style={{ color: "var(--warning)" }} />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
-                      {item.name}
-                    </p>
-                    <p className="text-xs" style={{ color: "var(--danger)" }}>
-                      Only {item.quantity} {item.unit} left
-                    </p>
-                  </div>
+                  View all
+                </button>
+              </div>
+              {data.recentEvents && data.recentEvents.length > 0 ? (
+                <div className="space-y-2">
+                  {data.recentEvents.map((event) => (
+                    <div
+                      key={event.id}
+                      className="flex items-center justify-between p-3 rounded-xl"
+                      style={{ background: "var(--bg-primary)" }}
+                    >
+                      <div>
+                        <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                          {event.name}
+                        </p>
+                        <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                          {event.eventType} • {event.customer?.name || "—"}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <span
+                          className="px-2 py-0.5 rounded text-[10px] font-medium"
+                          style={{
+                            background: event.status === "CONFIRMED" ? "rgba(59,130,246,0.15)" : "rgba(107,114,128,0.15)",
+                            color: event.status === "CONFIRMED" ? "#60a5fa" : "#9ca3af",
+                          }}
+                        >
+                          {event.status}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              ) : (
+                <p className="text-sm py-8 text-center" style={{ color: "var(--text-muted)" }}>
+                  No upcoming events
+                </p>
+              )}
+            </>
           ) : (
-            <p className="text-sm py-8 text-center" style={{ color: "var(--text-muted)" }}>
-              All stock levels are healthy
-            </p>
+            <>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                  Low Stock Alerts
+                </h3>
+                <button
+                  onClick={() => router.push("/stock")}
+                  className="text-xs font-medium"
+                  style={{ color: "var(--accent-secondary)" }}
+                >
+                  Manage stock
+                </button>
+              </div>
+              {data.lowStockItems.length > 0 ? (
+                <div className="space-y-2">
+                  {data.lowStockItems.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex items-center gap-3 p-3 rounded-xl"
+                      style={{ background: "var(--bg-primary)" }}
+                    >
+                      <AlertTriangle size={16} style={{ color: "var(--warning)" }} />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                          {item.name}
+                        </p>
+                        <p className="text-xs" style={{ color: "var(--danger)" }}>
+                          Only {item.quantity} {item.unit} left
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm py-8 text-center" style={{ color: "var(--text-muted)" }}>
+                  All stock levels are healthy
+                </p>
+              )}
+            </>
           )}
         </motion.div>
       </div>

@@ -19,15 +19,31 @@ import {
   LogOut,
   ChevronRight,
   Wine,
+  CalendarDays,
+  Users,
+  UtensilsCrossed,
 } from "lucide-react";
 import { useClerk } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
+import { useBusinessContext } from "@/contexts/BusinessContext";
 
-const navItems = [
+const wineNavItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/capital", label: "Capital", icon: Wallet },
   { href: "/stock", label: "Inventory", icon: Package },
   { href: "/batches", label: "Production", icon: FlaskConical },
+  { href: "/sales", label: "Sales & POS", icon: ShoppingCart },
+  { href: "/expenses", label: "Expenses", icon: Receipt },
+  { href: "/invoices", label: "Invoices", icon: FileText },
+  { href: "/calculator", label: "Calculator", icon: Calculator },
+  { href: "/reports", label: "Reports", icon: BarChart3 },
+];
+
+const foodNavItems = [
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/capital", label: "Capital", icon: Wallet },
+  { href: "/events", label: "Events", icon: CalendarDays },
+  { href: "/customers", label: "Customers", icon: Users },
   { href: "/sales", label: "Sales & POS", icon: ShoppingCart },
   { href: "/expenses", label: "Expenses", icon: Receipt },
   { href: "/invoices", label: "Invoices", icon: FileText },
@@ -40,6 +56,11 @@ export default function Sidebar() {
   const router = useRouter();
   const { signOut } = useClerk();
   const [isOpen, setIsOpen] = useState(false);
+  const { businessType, businessName } = useBusinessContext();
+
+  const navItems = businessType === "FOOD" ? foodNavItems : wineNavItems;
+  const LogoIcon = businessType === "FOOD" ? UtensilsCrossed : Wine;
+  const subtitle = businessType === "FOOD" ? "Catering Intelligence" : "Business Intelligence";
 
   const handleLogout = async () => {
     await signOut();
@@ -88,14 +109,14 @@ export default function Sidebar() {
             className="w-10 h-10 rounded-xl flex items-center justify-center"
             style={{ background: "var(--accent-gradient)" }}
           >
-            <Wine size={22} className="text-white" />
+            <LogoIcon size={22} className="text-white" />
           </div>
           <div>
             <h1 className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
-              Winery OS
+              {businessName || "Winery OS"}
             </h1>
             <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-              Business Intelligence
+              {subtitle}
             </p>
           </div>
         </div>
