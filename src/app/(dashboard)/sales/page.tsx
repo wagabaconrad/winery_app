@@ -20,6 +20,15 @@ interface Customer {
   phone: string | null;
 }
 
+interface StockItem {
+  id: string;
+  name: string;
+  quantity: number;
+  unit: string;
+  unitCost: number;
+  category: string;
+}
+
 interface Sale {
   id: string;
   totalAmount: number;
@@ -34,6 +43,7 @@ interface Sale {
 export default function SalesPage() {
   const [sales, setSales] = useState<Sale[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [finishedStock, setFinishedStock] = useState<StockItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showPOS, setShowPOS] = useState(false);
   const [showCustomerModal, setShowCustomerModal] = useState(false);
@@ -50,9 +60,12 @@ export default function SalesPage() {
     Promise.all([
       fetch("/api/sales").then((r) => r.json()),
       fetch("/api/customers").then((r) => r.json()),
-    ]).then(([s, c]) => {
+      fetch("/api/stock").then((r) => r.json()),
+    ]).then(([s, c, stock]) => {
       setSales(s);
       setCustomers(c);
+      const finished = Array.isArray(stock) ? stock.filter((i: StockItem) => i.category === "FINISHED") : [];
+      setFinishedStock(finished);
       setLoading(false);
     });
   }, []);
@@ -64,6 +77,13 @@ export default function SalesPage() {
   const updateItem = (index: number, field: keyof SaleItem, value: string) => {
     const updated = [...items];
     updated[index] = { ...updated[index], [field]: value };
+    // When selecting a product from stock, auto-fill the unit cost
+    if (field === "productName") {
+      const stockMatch = finishedStock.find((s) => s.name === value);
+      if (stockMatch) {
+        updated[index].unitCost = String(stockMatch.unitCost);
+      }
+    }
     setItems(updated);
   };
 
@@ -209,26 +229,78 @@ export default function SalesPage() {
           {/* Items */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>Items</p>
+              <p className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
+                Items
+                {finishedStock.length > 0 && (
+                  <span className="ml-2 font-normal" style={{ color: "var(--text-muted)" }}>
+                    — select from inventory or type a name
+                  </span>
+                )}
+              </p>
               <button type="button" onClick={addItem} className="text-xs font-medium" style={{ color: "var(--accent-secondary)" }}>+ Add Item</button>
             </div>
 
-            {items.map((item, idx) => (
-              <div key={idx} className="grid grid-cols-12 gap-2 mb-2">
-                <input type="text" value={item.productName} onChange={(e) => updateItem(idx, "productName", e.target.value)} placeholder="Product name" className="col-span-4 px-3 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }} />
-                <input type="number" value={item.quantity} onChange={(e) => updateItem(idx, "quantity", e.target.value)} placeholder="Qty" min="1" className="col-span-2 px-3 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }} />
-                <input type="number" value={item.unitPrice} onChange={(e) => updateItem(idx, "unitPrice", e.target.value)} placeholder="Price" min="0" className="col-span-2 px-3 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }} />
-                <input type="number" value={item.unitCost} onChange={(e) => updateItem(idx, "unitCost", e.target.value)} placeholder="Cost" min="0" className="col-span-2 px-3 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }} />
-                <div className="col-span-2 flex items-center justify-between">
-                  <span className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>
-                    {((parseFloat(String(item.quantity)) || 0) * (parseFloat(String(item.unitPrice)) || 0)).toLocaleString()}
-                  </span>
-                  {items.length > 1 && (
-                    <button type="button" onClick={() => removeItem(idx)} className="text-xs" style={{ color: "var(--danger)" }}>✕</button>
-                  )}
+            {/* Column headers */}
+            <div className="grid grid-cols-12 gap-2 mb-1">
+              <p className="col-span-4 text-[10px]" style={{ color: "var(--text-muted)" }}>Product</p>
+              <p className="col-span-2 text-[10px]" style={{ color: "var(--text-muted)" }}>Qty</p>
+              <p className="col-span-3 text-[10px]" style={{ color: "var(--text-muted)" }}>Sell Price</p>
+              <p className="col-span-2 text-[10px]" style={{ color: "var(--text-muted)" }}>Total</p>
+            </div>
+
+            {/* datalist for stock suggestions */}
+            <datalist id="finished-stock-list">
+              {finishedStock.map((s) => (
+                <option key={s.id} value={s.name}>{s.name} ({s.quantity} {s.unit} in stock)</option>
+              ))}
+            </datalist>
+
+            {items.map((item, idx) => {
+              const stockItem = finishedStock.find((s) => s.name === item.productName);
+              return (
+                <div key={idx} className="grid grid-cols-12 gap-2 mb-2 items-center">
+                  <div className="col-span-4">
+                    <input
+                      list="finished-stock-list"
+                      type="text"
+                      value={item.productName}
+                      onChange={(e) => updateItem(idx, "productName", e.target.value)}
+                      placeholder="Select or type product"
+                      required
+                      className="w-full px-3 py-2 rounded-xl text-xs outline-none"
+                      style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }}
+                    />
+                    {stockItem && (
+                      <p className="text-[10px] mt-0.5 px-1" style={{ color: "var(--text-muted)" }}>
+                        {stockItem.quantity} {stockItem.unit} in stock
+                      </p>
+                    )}
+                  </div>
+                  <input type="number" value={item.quantity} onChange={(e) => updateItem(idx, "quantity", e.target.value)} placeholder="Qty" min="1" required className="col-span-2 px-3 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }} />
+                  <div className="col-span-3 space-y-1">
+                    <input type="number" value={item.unitPrice} onChange={(e) => updateItem(idx, "unitPrice", e.target.value)} placeholder="Sell price" min="0" required className="w-full px-3 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }} />
+                    {/* Cost (hidden if auto-filled from stock, shown as small label) */}
+                    {!stockItem && (
+                      <input type="number" value={item.unitCost} onChange={(e) => updateItem(idx, "unitCost", e.target.value)} placeholder="Unit cost" min="0" className="w-full px-3 py-1.5 rounded-xl text-[10px] outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-muted)" }} />
+                    )}
+                    {stockItem && (
+                      <p className="text-[10px] px-1" style={{ color: "var(--text-muted)" }}>
+                        Cost: {stockItem.unitCost.toLocaleString()} (auto)
+                      </p>
+                    )}
+                  </div>
+                  <div className="col-span-2 flex items-center justify-between pl-1">
+                    <span className="text-xs font-semibold" style={{ color: "var(--success)" }}>
+                      {((parseFloat(String(item.quantity)) || 0) * (parseFloat(String(item.unitPrice)) || 0)).toLocaleString()}
+                    </span>
+                    {items.length > 1 && (
+                      <button type="button" onClick={() => removeItem(idx)} className="text-xs" style={{ color: "var(--danger)" }}>✕</button>
+                    )}
+                  </div>
+                  <div className="col-span-1" />
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Total */}

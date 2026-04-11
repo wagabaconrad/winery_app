@@ -142,6 +142,22 @@ export default function StockPage() {
         </div>
       </div>
 
+      {/* Inventory Value Summary */}
+      {items.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {[
+            { label: "Total Inventory Value", value: items.reduce((s, i) => s + i.totalValue, 0), color: "var(--accent-secondary)" },
+            { label: "Raw Materials Value", value: items.filter(i => i.category === "RAW").reduce((s, i) => s + i.totalValue, 0), color: "#3b82f6" },
+            { label: "Finished Goods Value", value: items.filter(i => i.category === "FINISHED").reduce((s, i) => s + i.totalValue, 0), color: "#10b981" },
+          ].map((stat) => (
+            <div key={stat.label} className="rounded-xl p-4" style={{ background: "var(--bg-card)", border: "1px solid var(--border-color)" }}>
+              <p className="text-xs mb-1" style={{ color: "var(--text-muted)" }}>{stat.label}</p>
+              <p className="text-xl font-bold" style={{ color: stat.color }}>{stat.value.toLocaleString()}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Items */}
       {filtered.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -251,6 +267,8 @@ export default function StockPage() {
                 <option value="g">Grams</option>
                 <option value="liters">Liters</option>
                 <option value="bottles">Bottles</option>
+                <option value="jerrycans">Jerrycans</option>
+                <option value="cans">Cans</option>
                 <option value="units">Units</option>
                 <option value="packs">Packs</option>
               </select>

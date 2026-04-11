@@ -32,9 +32,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { name, outputQuantity, materials, expenses: linkedExpenses = [], bottleCount, jerrycanCount, canCount } = body;
 
-    if (!name || !outputQuantity || !materials?.length) {
+    if (!name || !outputQuantity) {
       return NextResponse.json(
-        { error: "Name, output quantity, and at least one material are required" },
+        { error: "Batch name and output quantity are required" },
         { status: 400 }
       );
     }
@@ -69,16 +69,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Calculate batch cost
-    const materialCosts = materials.map((m: { quantityUsed: number; unitCost: number }) => ({
-      quantityUsed: m.quantityUsed,
-      unitCost: m.unitCost,
+    // Calculate batch cost (parse strings to numbers in case form sent strings)
+    const materialCosts = materials.map((m: { quantityUsed: string | number; unitCost: string | number }) => ({
+      quantityUsed: parseFloat(String(m.quantityUsed)),
+      unitCost: parseFloat(String(m.unitCost)),
     }));
-    const expenseTotal = linkedExpenses.reduce((s: number, e: { amount: number }) => s + e.amount, 0);
+    const expenseTotal = linkedExpenses.reduce((s: number, e: { amount: string | number }) => s + parseFloat(String(e.amount)), 0);
     const totalCost = calculateBatchCost({ materials: materialCosts, linkedExpenses: expenseTotal });
     const costPerUnit = calculateCostPerUnit(totalCost, parseFloat(outputQuantity));
 
-    // Create batch in a transaction
+    // Create batch in a transaction (increased timeout for accounts with many stock items)
     const batch = await prisma.$transaction(async (tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0]) => {
       // Create the batch
       const parsedBottles = bottleCount ? parseInt(bottleCount) : null;
@@ -176,7 +176,7 @@ export async function POST(request: NextRequest) {
       }
 
       return newBatch;
-    });
+    }, { timeout: 30000 });
 
     // Fetch full batch with relations
     const fullBatch = await prisma.productionBatch.findUnique({
@@ -189,7 +189,68 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(fullBatch, { status: 201 });
   } catch (error) {
-    console.error("POST /api/batches:", error);
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("POST /api/batches:", msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}
+
+export async function PUT(request: NextRequest) {
+  try {
+    const businessId = await getBusinessId();
+    if (!businessId) return NextResponse.json({ error: "No business found" }, { status: 404 });
+
+    const body = await request.json();
+    const { id, name, outputQuantity, bottleCount, jerrycanCount, canCount } = body;
+
+    if (!id) return NextResponse.json({ error: "Batch ID required" }, { status: 400 });
+    if (!name || !outputQuantity) return NextResponse.json({ error: "Name and output quantity required" }, { status: 400 });
+
+    const existing = await prisma.productionBatch.findFirst({ where: { id, businessId } });
+    if (!existing) return NextResponse.json({ error: "Batch not found" }, { status: 404 });
+
+    const parsedOutputQty = parseFloat(outputQuantity);
+    if (isNaN(parsedOutputQty) || parsedOutputQty <= 0) {
+      return NextResponse.json({ error: "Output quantity must be a positive number" }, { status: 400 });
+    }
+
+    const updated = await prisma.productionBatch.update({
+      where: { id },
+      data: {
+        name,
+        outputQuantity: parsedOutputQty,
+        costPerUnit: existing.totalCost > 0 ? calculateCostPerUnit(existing.totalCost, parsedOutputQty) : existing.costPerUnit,
+        bottleCount: bottleCount ? parseInt(bottleCount) || null : null,
+        jerrycanCount: jerrycanCount ? parseInt(jerrycanCount) || null : null,
+        canCount: canCount ? parseInt(canCount) || null : null,
+      },
+      include: { materials: { include: { stockItem: true } }, expenses: true },
+    });
+
+    return NextResponse.json(updated);
+  } catch (error) {
+    console.error("PUT /api/batches:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const businessId = await getBusinessId();
+    if (!businessId) return NextResponse.json({ error: "No business found" }, { status: 404 });
+
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
+    if (!id) return NextResponse.json({ error: "Batch ID required" }, { status: 400 });
+
+    const existing = await prisma.productionBatch.findFirst({ where: { id, businessId } });
+    if (!existing) return NextResponse.json({ error: "Batch not found" }, { status: 404 });
+
+    await prisma.productionBatch.delete({ where: { id } });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("DELETE /api/batches:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
