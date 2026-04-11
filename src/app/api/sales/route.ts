@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     let totalAmount = 0;
     let totalCOGS = 0;
 
-    const processedItems = items.map((item: { productName: string; quantity: number; unitPrice: number; unitCost?: number }) => {
+    const processedItems = items.map((item: { productName: string; quantity: number; unitPrice: number; unitCost?: number; stockItemId?: string }) => {
       if (!item.productName || typeof item.productName !== "string" || !item.productName.trim()) {
         throw Object.assign(new Error("Each item must have a product name"), { status: 400 });
       }
@@ -61,6 +61,7 @@ export async function POST(request: NextRequest) {
         unitPrice: price,
         unitCost: cost,
         total: lineTotal,
+        stockItemId: item.stockItemId || null,
       };
     });
 
@@ -90,10 +91,15 @@ export async function POST(request: NextRequest) {
 
       // Deduct sold quantities from FINISHED goods inventory
       for (const item of processedItems) {
-        const stockItem = await tx.stockItem.findFirst({
-          where: { businessId, name: item.productName, category: "FINISHED" },
-        });
-        if (stockItem) {
+        // Prefer direct ID lookup (set when user selects from inventory picker)
+        // Fall back to name match for manually typed products
+        const stockItem = item.stockItemId
+          ? await tx.stockItem.findUnique({ where: { id: item.stockItemId } })
+          : await tx.stockItem.findFirst({
+              where: { businessId, name: item.productName, category: "FINISHED" },
+            });
+
+        if (stockItem && stockItem.businessId === businessId) {
           const newQty = Math.max(0, stockItem.quantity - item.quantity);
           await tx.stockItem.update({
             where: { id: stockItem.id },

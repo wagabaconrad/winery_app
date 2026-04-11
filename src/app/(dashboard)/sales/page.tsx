@@ -12,6 +12,7 @@ interface SaleItem {
   quantity: number | string;
   unitPrice: number | string;
   unitCost: number | string;
+  stockItemId?: string;
 }
 
 interface Customer {
@@ -52,7 +53,7 @@ export default function SalesPage() {
 
   const [customerId, setCustomerId] = useState("");
   const [items, setItems] = useState<SaleItem[]>([
-    { productName: "", quantity: "", unitPrice: "", unitCost: "" },
+    { productName: "", quantity: "", unitPrice: "", unitCost: "", stockItemId: "" },
   ]);
   const [newCustomer, setNewCustomer] = useState({ name: "", phone: "", email: "" });
 
@@ -71,17 +72,20 @@ export default function SalesPage() {
   }, []);
 
   const addItem = () => {
-    setItems([...items, { productName: "", quantity: "", unitPrice: "", unitCost: "" }]);
+    setItems([...items, { productName: "", quantity: "", unitPrice: "", unitCost: "", stockItemId: "" }]);
   };
 
   const updateItem = (index: number, field: keyof SaleItem, value: string) => {
     const updated = [...items];
     updated[index] = { ...updated[index], [field]: value };
-    // When selecting a product from stock, auto-fill the unit cost
+    // When selecting a product from stock, auto-fill unit cost and store stock item ID
     if (field === "productName") {
       const stockMatch = finishedStock.find((s) => s.name === value);
       if (stockMatch) {
         updated[index].unitCost = String(stockMatch.unitCost);
+        updated[index].stockItemId = stockMatch.id;
+      } else {
+        updated[index].stockItemId = "";
       }
     }
     setItems(updated);
@@ -111,7 +115,7 @@ export default function SalesPage() {
       });
       if (res.ok) {
         setShowPOS(false);
-        setItems([{ productName: "", quantity: "", unitPrice: "", unitCost: "" }]);
+        setItems([{ productName: "", quantity: "", unitPrice: "", unitCost: "", stockItemId: "" }]);
         setCustomerId("");
         const updated = await fetch("/api/sales").then((r) => r.json());
         setSales(Array.isArray(updated) ? updated : sales);
