@@ -78,15 +78,23 @@ export default function SalesPage() {
   const updateItem = (index: number, field: keyof SaleItem, value: string) => {
     const updated = [...items];
     updated[index] = { ...updated[index], [field]: value };
-    // When selecting a product from stock, auto-fill unit cost and store stock item ID
-    if (field === "productName") {
-      const stockMatch = finishedStock.find((s) => s.name === value);
-      if (stockMatch) {
-        updated[index].unitCost = String(stockMatch.unitCost);
-        updated[index].stockItemId = stockMatch.id;
-      } else {
-        updated[index].stockItemId = "";
-      }
+    setItems(updated);
+  };
+
+  // Selecting from the inventory dropdown binds the exact stock row by ID —
+  // no name-match fragility, so deduction on sale is guaranteed.
+  const selectStockItem = (index: number, stockItemId: string) => {
+    const updated = [...items];
+    const stock = finishedStock.find((s) => s.id === stockItemId);
+    if (stock) {
+      updated[index] = {
+        ...updated[index],
+        productName: stock.name,
+        unitCost: String(stock.unitCost),
+        stockItemId: stock.id,
+      };
+    } else {
+      updated[index] = { ...updated[index], productName: "", unitCost: "", stockItemId: "" };
     }
     setItems(updated);
   };
@@ -240,7 +248,7 @@ export default function SalesPage() {
                 Items
                 {finishedStock.length > 0 && (
                   <span className="ml-2 font-normal" style={{ color: "var(--text-muted)" }}>
-                    — select from inventory or type a name
+                    — select from inventory
                   </span>
                 )}
               </p>
@@ -255,28 +263,38 @@ export default function SalesPage() {
               <p className="col-span-2 text-[10px]" style={{ color: "var(--text-muted)" }}>Total</p>
             </div>
 
-            {/* datalist for stock suggestions */}
-            <datalist id="finished-stock-list">
-              {finishedStock.map((s) => (
-                <option key={s.id} value={s.name}>{s.name} ({s.quantity} {s.unit} in stock)</option>
-              ))}
-            </datalist>
-
             {items.map((item, idx) => {
-              const stockItem = finishedStock.find((s) => s.name === item.productName);
+              const stockItem = item.stockItemId ? finishedStock.find((s) => s.id === item.stockItemId) : null;
+              const availableStock = finishedStock.filter((s) => s.quantity > 0 || s.id === item.stockItemId);
               return (
                 <div key={idx} className="grid grid-cols-12 gap-2 mb-2 items-center">
                   <div className="col-span-4">
-                    <input
-                      list="finished-stock-list"
-                      type="text"
-                      value={item.productName}
-                      onChange={(e) => updateItem(idx, "productName", e.target.value)}
-                      placeholder="Select or type product"
-                      required
-                      className="w-full px-3 py-2 rounded-xl text-xs outline-none"
-                      style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }}
-                    />
+                    {finishedStock.length > 0 ? (
+                      <select
+                        value={item.stockItemId || ""}
+                        onChange={(e) => selectStockItem(idx, e.target.value)}
+                        required
+                        className="w-full px-3 py-2 rounded-xl text-xs outline-none"
+                        style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }}
+                      >
+                        <option value="">Select product</option>
+                        {availableStock.map((s) => (
+                          <option key={s.id} value={s.id} disabled={s.quantity <= 0}>
+                            {s.name} — {s.quantity} {s.unit}{s.quantity <= 0 ? " (SOLD OUT)" : ""}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        value={item.productName}
+                        onChange={(e) => updateItem(idx, "productName", e.target.value)}
+                        placeholder="Product name"
+                        required
+                        className="w-full px-3 py-2 rounded-xl text-xs outline-none"
+                        style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }}
+                      />
+                    )}
                     {stockItem && (
                       <p className="text-[10px] mt-0.5 px-1" style={{ color: "var(--text-muted)" }}>
                         {stockItem.quantity} {stockItem.unit} in stock

@@ -187,30 +187,28 @@ export default function StockPage() {
                       {item.category === "RAW" ? "Raw Material" : "Finished Good"}
                     </span>
                     {item.category === "FINISHED" && item.quantity <= 0 && (
-                      <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}>
+                      <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ background: "rgba(239,68,68,0.15)", color: "#ef4444" }}>
                         SOLD OUT
                       </span>
                     )}
                   </div>
-                  {item.category === "FINISHED" && item.sourceBatch && (
-                    <p className="text-[10px] mt-1 truncate" style={{ color: "var(--text-muted)" }}>
-                      Batch: {item.sourceBatch.name}
-                    </p>
+                  {item.category === "FINISHED" && (
+                    <div className="mt-2 px-2 py-1.5 rounded-lg" style={{ background: "rgba(139,92,246,0.08)", border: "1px solid rgba(139,92,246,0.2)" }}>
+                      <p className="text-[10px] uppercase tracking-wide font-semibold" style={{ color: "#a78bfa" }}>
+                        From Batch
+                      </p>
+                      <p className="text-xs font-medium truncate" style={{ color: "var(--text-primary)" }}>
+                        {item.sourceBatch?.name || "Legacy (unlinked)"}
+                      </p>
+                    </div>
                   )}
                 </div>
-                {/* Only allow editing non-batch-linked items; batch finished goods are managed by the system */}
-                {!item.sourceBatch && (
+                {/* Only raw materials are manually editable; finished goods are fully managed by batch production + sales */}
+                {item.category === "RAW" && (
                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                     <button onClick={() => openEdit(item)} className="p-1.5 rounded-lg" style={{ color: "var(--text-muted)" }}>
                       <Edit3 size={14} />
                     </button>
-                    <button onClick={() => handleDelete(item.id)} className="p-1.5 rounded-lg" style={{ color: "var(--danger)" }}>
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                )}
-                {item.sourceBatch && (
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                     <button onClick={() => handleDelete(item.id)} className="p-1.5 rounded-lg" style={{ color: "var(--danger)" }}>
                       <Trash2 size={14} />
                     </button>
@@ -276,8 +274,10 @@ export default function StockPage() {
                 style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }}
               >
                 <option value="RAW">Raw Material</option>
-                <option value="FINISHED">Finished Good</option>
               </select>
+              <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+                Finished goods are auto-created from production batches
+              </p>
             </div>
             <div className="space-y-1.5">
               <label className="block text-xs font-medium" style={{ color: "var(--text-secondary)" }}>Unit</label>

@@ -32,6 +32,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Name and category are required" }, { status: 400 });
     }
 
+    // Finished goods can only be created by the production batch system
+    if (category === "FINISHED") {
+      return NextResponse.json(
+        { error: "Finished goods are created automatically when you create a production batch. They cannot be added manually." },
+        { status: 400 }
+      );
+    }
+
     const qty = parseFloat(quantity);
     const cost = parseFloat(unitCost);
 
@@ -71,6 +79,16 @@ export async function PUT(request: NextRequest) {
 
     if (!id) return NextResponse.json({ error: "ID is required" }, { status: 400 });
 
+    // Protect finished goods from manual edits — they're managed by batch production & sales
+    const existing = await prisma.stockItem.findFirst({ where: { id, businessId } });
+    if (!existing) return NextResponse.json({ error: "Stock item not found" }, { status: 404 });
+    if (existing.category === "FINISHED") {
+      return NextResponse.json(
+        { error: "Finished goods cannot be edited. They are managed automatically by production batches and sales." },
+        { status: 403 }
+      );
+    }
+
     const qty = parseFloat(quantity);
     const cost = parseFloat(unitCost);
 
@@ -109,6 +127,16 @@ export async function DELETE(request: NextRequest) {
     const id = searchParams.get("id");
 
     if (!id) return NextResponse.json({ error: "ID is required" }, { status: 400 });
+
+    // Protect finished goods from manual deletion
+    const existing = await prisma.stockItem.findFirst({ where: { id, businessId } });
+    if (!existing) return NextResponse.json({ error: "Stock item not found" }, { status: 404 });
+    if (existing.category === "FINISHED") {
+      return NextResponse.json(
+        { error: "Finished goods cannot be deleted. They are managed automatically by production batches and sales." },
+        { status: 403 }
+      );
+    }
 
     await prisma.stockItem.delete({
       where: { id, businessId },
