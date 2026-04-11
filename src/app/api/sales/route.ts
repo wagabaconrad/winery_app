@@ -88,6 +88,23 @@ export async function POST(request: NextRequest) {
         include: { items: true },
       });
 
+      // Deduct sold quantities from FINISHED goods inventory
+      for (const item of processedItems) {
+        const stockItem = await tx.stockItem.findFirst({
+          where: { businessId, name: item.productName, category: "FINISHED" },
+        });
+        if (stockItem) {
+          const newQty = Math.max(0, stockItem.quantity - item.quantity);
+          await tx.stockItem.update({
+            where: { id: stockItem.id },
+            data: {
+              quantity: newQty,
+              totalValue: newQty * stockItem.unitCost,
+            },
+          });
+        }
+      }
+
       // Create invoice
       await tx.invoice.create({
         data: {
@@ -97,7 +114,7 @@ export async function POST(request: NextRequest) {
       });
 
       return newSale;
-    });
+    }, { timeout: 30000 });
 
     // Fetch full sale
     const fullSale = await prisma.sale.findUnique({
