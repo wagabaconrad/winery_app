@@ -62,8 +62,8 @@ export default function SalesPage() {
       fetch("/api/customers").then((r) => r.json()),
       fetch("/api/stock").then((r) => r.json()),
     ]).then(([s, c, stock]) => {
-      setSales(s);
-      setCustomers(c);
+      setSales(Array.isArray(s) ? s : []);
+      setCustomers(Array.isArray(c) ? c : []);
       const finished = Array.isArray(stock) ? stock.filter((i: StockItem) => i.category === "FINISHED") : [];
       setFinishedStock(finished);
       setLoading(false);
@@ -114,7 +114,10 @@ export default function SalesPage() {
         setItems([{ productName: "", quantity: "", unitPrice: "", unitCost: "" }]);
         setCustomerId("");
         const updated = await fetch("/api/sales").then((r) => r.json());
-        setSales(updated);
+        setSales(Array.isArray(updated) ? updated : sales);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || `Failed to record sale (${res.status})`);
       }
     } finally {
       setSaving(false);
