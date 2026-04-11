@@ -23,6 +23,14 @@ interface MaterialUsage {
   stockItem: { name: string; unit: string };
 }
 
+interface FinishedGood {
+  id: string;
+  name: string;
+  quantity: number;
+  unit: string;
+  unitCost: number;
+}
+
 interface Batch {
   id: string;
   name: string;
@@ -36,6 +44,7 @@ interface Batch {
   createdAt: string;
   materials: MaterialUsage[];
   expenses: { id: string; category: string; amount: number; description: string | null }[];
+  finishedGoods: FinishedGood[];
 }
 
 export default function BatchesPage() {
@@ -238,10 +247,10 @@ export default function BatchesPage() {
     }
   };
 
+  // Inputs picker only shows RAW materials — finished goods come from batch creation only
   const filteredPickerItems = stock.filter((s) => {
     const matchesSearch = s.name.toLowerCase().includes(pickerSearch.toLowerCase());
-    const matchesFilter = pickerFilter === "ALL" || s.category === pickerFilter;
-    return matchesSearch && matchesFilter;
+    return s.category === "RAW" && matchesSearch;
   });
 
   if (loading) return <LoadingSpinner />;
@@ -278,7 +287,12 @@ export default function BatchesPage() {
                     <FlaskConical size={20} style={{ color: "var(--accent-secondary)" }} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{batch.name}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{batch.name}</p>
+                      {batch.status === "completed" && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ background: "rgba(16,185,129,0.15)", color: "#10b981" }}>Completed</span>
+                      )}
+                    </div>
                     <p className="text-xs" style={{ color: "var(--text-muted)" }}>
                       {new Date(batch.createdAt).toLocaleDateString()} • {batch.outputQuantity} units
                     </p>
@@ -327,6 +341,29 @@ export default function BatchesPage() {
                       </div>
                     </div>
                   )}
+                  {/* Finished Goods produced by this batch */}
+                  {batch.finishedGoods && batch.finishedGoods.length > 0 && (
+                    <div className="pt-3">
+                      <p className="text-xs font-medium mb-2" style={{ color: "var(--text-secondary)" }}>Finished Goods</p>
+                      {batch.finishedGoods.map((g) => {
+                        const soldOut = g.quantity <= 0;
+                        return (
+                          <div key={g.id} className="flex items-center justify-between py-1.5 text-xs" style={{ borderBottom: "1px solid var(--border-color)" }}>
+                            <div className="flex items-center gap-2">
+                              <span style={{ color: "var(--text-primary)" }}>{g.name}</span>
+                              {soldOut && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}>SOLD OUT</span>
+                              )}
+                            </div>
+                            <span style={{ color: soldOut ? "#ef4444" : "var(--text-muted)" }}>
+                              {g.quantity} {g.unit} remaining
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
                   <div className="pt-3">
                     <p className="text-xs font-medium mb-2" style={{ color: "var(--text-secondary)" }}>Inputs Used</p>
                     {batch.materials.map((m) => (
@@ -524,24 +561,7 @@ export default function BatchesPage() {
             />
           </div>
 
-          {/* Filter tabs */}
-          <div className="flex gap-2">
-            {(["ALL", "RAW", "FINISHED"] as const).map((f) => (
-              <button
-                key={f}
-                type="button"
-                onClick={() => setPickerFilter(f)}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-                style={{
-                  background: pickerFilter === f ? "var(--accent-gradient)" : "var(--bg-primary)",
-                  color: pickerFilter === f ? "#fff" : "var(--text-secondary)",
-                  border: pickerFilter === f ? "none" : "1px solid var(--border-color)",
-                }}
-              >
-                {f === "ALL" ? "All" : f === "RAW" ? "Raw Materials" : "Finished Goods"}
-              </button>
-            ))}
-          </div>
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>Showing raw materials only — finished goods are created automatically from batch output.</p>
 
           {/* Items list */}
           <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">

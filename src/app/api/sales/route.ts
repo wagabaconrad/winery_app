@@ -90,14 +90,19 @@ export async function POST(request: NextRequest) {
       });
 
       // Deduct sold quantities from FINISHED goods inventory
+      const affectedBatchIds = new Set<string>();
+
       for (const item of processedItems) {
         // Prefer direct ID lookup (set when user selects from inventory picker)
         // Fall back to name match for manually typed products
-        const stockItem = item.stockItemId
-          ? await tx.stockItem.findUnique({ where: { id: item.stockItemId } })
-          : await tx.stockItem.findFirst({
-              where: { businessId, name: item.productName, category: "FINISHED" },
-            });
+        let stockItem: { id: string; businessId: string; quantity: number; unitCost: number; sourceBatchId: string | null } | null = null;
+        if (item.stockItemId) {
+          stockItem = await tx.stockItem.findUnique({ where: { id: item.stockItemId } });
+        } else {
+          stockItem = await tx.stockItem.findFirst({
+            where: { businessId, name: item.productName, category: "FINISHED" },
+          });
+        }
 
         if (stockItem && stockItem.businessId === businessId) {
           const newQty = Math.max(0, stockItem.quantity - item.quantity);
@@ -107,6 +112,24 @@ export async function POST(request: NextRequest) {
               quantity: newQty,
               totalValue: newQty * stockItem.unitCost,
             },
+          });
+          // Track which batches had stock deducted
+          if (stockItem.sourceBatchId) {
+            affectedBatchIds.add(stockItem.sourceBatchId);
+          }
+        }
+      }
+
+      // Check each affected batch — if all its finished goods are now 0, mark it completed
+      for (const batchId of affectedBatchIds) {
+        const batchGoods = await tx.stockItem.findMany({
+          where: { sourceBatchId: batchId, category: "FINISHED" },
+        });
+        const allSoldOut = batchGoods.length > 0 && batchGoods.every((g) => g.quantity <= 0);
+        if (allSoldOut) {
+          await tx.productionBatch.update({
+            where: { id: batchId },
+            data: { status: "completed" },
           });
         }
       }

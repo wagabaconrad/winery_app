@@ -13,6 +13,7 @@ export async function GET() {
       include: {
         materials: { include: { stockItem: true } },
         expenses: true,
+        finishedGoods: true,
       },
       orderBy: { createdAt: "desc" },
     });
@@ -136,42 +137,28 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // Auto-create/update FINISHED stock items for wine product forms
+      // Create dedicated FINISHED stock items per batch (one per product form)
       const productForms = [
-        { name: "Wine Bottles", count: parsedBottles, unit: "bottles" },
-        { name: "Wine Jerrycans", count: parsedJerrycans, unit: "jerrycans" },
-        { name: "Wine Cans", count: parsedCans, unit: "cans" },
+        { suffix: "Bottles", count: parsedBottles, unit: "bottles" },
+        { suffix: "Jerrycans", count: parsedJerrycans, unit: "jerrycans" },
+        { suffix: "Cans", count: parsedCans, unit: "cans" },
       ];
 
       for (const pf of productForms) {
         if (pf.count && pf.count > 0) {
-          const existing = await tx.stockItem.findFirst({
-            where: { businessId, name: pf.name, category: "FINISHED" },
+          const itemName = `${name} — ${pf.suffix}`;
+          await tx.stockItem.create({
+            data: {
+              businessId,
+              name: itemName,
+              category: "FINISHED",
+              quantity: pf.count,
+              unit: pf.unit,
+              unitCost: costPerUnit,
+              totalValue: pf.count * costPerUnit,
+              sourceBatchId: newBatch.id,
+            },
           });
-
-          if (existing) {
-            const newQty = existing.quantity + pf.count;
-            await tx.stockItem.update({
-              where: { id: existing.id },
-              data: {
-                quantity: newQty,
-                unitCost: costPerUnit,
-                totalValue: newQty * costPerUnit,
-              },
-            });
-          } else {
-            await tx.stockItem.create({
-              data: {
-                businessId,
-                name: pf.name,
-                category: "FINISHED",
-                quantity: pf.count,
-                unit: pf.unit,
-                unitCost: costPerUnit,
-                totalValue: pf.count * costPerUnit,
-              },
-            });
-          }
         }
       }
 
@@ -184,6 +171,7 @@ export async function POST(request: NextRequest) {
       include: {
         materials: { include: { stockItem: true } },
         expenses: true,
+        finishedGoods: true,
       },
     });
 

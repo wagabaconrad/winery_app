@@ -97,20 +97,23 @@ model CapitalEntry {
 }
 
 model StockItem {
-  id         String             @id @default(uuid())
-  businessId String
-  name       String
-  category   StockCategory
-  quantity   Float              @default(0)
-  unit       String             @default("units")
-  unitCost   Float              @default(0)
-  totalValue Float              @default(0)
-  createdAt  DateTime           @default(now())
-  updatedAt  DateTime           @updatedAt
-  business   Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  usages     RawMaterialUsage[]
+  id            String             @id @default(uuid())
+  businessId    String
+  name          String
+  category      StockCategory
+  quantity      Float              @default(0)
+  unit          String             @default("units")
+  unitCost      Float              @default(0)
+  totalValue    Float              @default(0)
+  sourceBatchId String?            // links finished goods to the batch that produced them
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  business      Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  usages        RawMaterialUsage[]
+  sourceBatch   ProductionBatch?   @relation("BatchFinishedGoods", fields: [sourceBatchId], references: [id], onDelete: SetNull)
 
   @@index([businessId])
+  @@index([sourceBatchId])
 }
 
 model ProductionBatch {
@@ -128,6 +131,7 @@ model ProductionBatch {
   business       Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
   materials      RawMaterialUsage[]
   expenses       Expense[]
+  finishedGoods  StockItem[]        @relation("BatchFinishedGoods")
 
   @@index([businessId])
 }

@@ -15,6 +15,7 @@ interface StockItem {
   unit: string;
   unitCost: number;
   totalValue: number;
+  sourceBatch?: { id: string; name: string } | null;
 }
 
 export default function StockPage() {
@@ -171,28 +172,50 @@ export default function StockPage() {
               style={{ background: "var(--bg-card)", border: "1px solid var(--border-color)" }}
             >
               <div className="flex items-start justify-between mb-3">
-                <div>
+                <div className="flex-1 min-w-0 mr-2">
                   <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
                     {item.name}
                   </p>
-                  <span
-                    className="text-xs px-2 py-0.5 rounded-full mt-1 inline-block"
-                    style={{
-                      background: item.category === "RAW" ? "rgba(59,130,246,0.1)" : "rgba(16,185,129,0.1)",
-                      color: item.category === "RAW" ? "#3b82f6" : "#10b981",
-                    }}
-                  >
-                    {item.category === "RAW" ? "Raw Material" : "Finished Good"}
-                  </span>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    <span
+                      className="text-xs px-2 py-0.5 rounded-full"
+                      style={{
+                        background: item.category === "RAW" ? "rgba(59,130,246,0.1)" : "rgba(16,185,129,0.1)",
+                        color: item.category === "RAW" ? "#3b82f6" : "#10b981",
+                      }}
+                    >
+                      {item.category === "RAW" ? "Raw Material" : "Finished Good"}
+                    </span>
+                    {item.category === "FINISHED" && item.quantity <= 0 && (
+                      <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}>
+                        SOLD OUT
+                      </span>
+                    )}
+                  </div>
+                  {item.category === "FINISHED" && item.sourceBatch && (
+                    <p className="text-[10px] mt-1 truncate" style={{ color: "var(--text-muted)" }}>
+                      Batch: {item.sourceBatch.name}
+                    </p>
+                  )}
                 </div>
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={() => openEdit(item)} className="p-1.5 rounded-lg" style={{ color: "var(--text-muted)" }}>
-                    <Edit3 size={14} />
-                  </button>
-                  <button onClick={() => handleDelete(item.id)} className="p-1.5 rounded-lg" style={{ color: "var(--danger)" }}>
-                    <Trash2 size={14} />
-                  </button>
-                </div>
+                {/* Only allow editing non-batch-linked items; batch finished goods are managed by the system */}
+                {!item.sourceBatch && (
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                    <button onClick={() => openEdit(item)} className="p-1.5 rounded-lg" style={{ color: "var(--text-muted)" }}>
+                      <Edit3 size={14} />
+                    </button>
+                    <button onClick={() => handleDelete(item.id)} className="p-1.5 rounded-lg" style={{ color: "var(--danger)" }}>
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                )}
+                {item.sourceBatch && (
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                    <button onClick={() => handleDelete(item.id)} className="p-1.5 rounded-lg" style={{ color: "var(--danger)" }}>
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-3 gap-2">

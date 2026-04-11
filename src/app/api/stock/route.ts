@@ -9,6 +9,7 @@ export async function GET() {
 
     const items = await prisma.stockItem.findMany({
       where: { businessId },
+      include: { sourceBatch: { select: { id: true, name: true } } },
       orderBy: { createdAt: "desc" },
     });
 
