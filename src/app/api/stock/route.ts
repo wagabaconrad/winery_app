@@ -125,6 +125,15 @@ export async function DELETE(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
+    const cleanupLegacy = searchParams.get("cleanupLegacy") === "true";
+
+    // Special: clean up legacy finished goods that have no batch link (pre-migration orphans)
+    if (cleanupLegacy) {
+      const result = await prisma.stockItem.deleteMany({
+        where: { businessId, category: "FINISHED", sourceBatchId: null },
+      });
+      return NextResponse.json({ success: true, deleted: result.count });
+    }
 
     if (!id) return NextResponse.json({ error: "ID is required" }, { status: 400 });
 

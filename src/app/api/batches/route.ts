@@ -234,7 +234,14 @@ export async function DELETE(request: NextRequest) {
     const existing = await prisma.productionBatch.findFirst({ where: { id, businessId } });
     if (!existing) return NextResponse.json({ error: "Batch not found" }, { status: 404 });
 
-    await prisma.productionBatch.delete({ where: { id } });
+    // Cascade-delete: remove the batch's finished goods from inventory first,
+    // then delete the batch itself. Keeps inventory in sync — no orphaned stock.
+    await prisma.$transaction([
+      prisma.stockItem.deleteMany({
+        where: { businessId, sourceBatchId: id, category: "FINISHED" },
+      }),
+      prisma.productionBatch.delete({ where: { id } }),
+    ]);
 
     return NextResponse.json({ success: true });
   } catch (error) {

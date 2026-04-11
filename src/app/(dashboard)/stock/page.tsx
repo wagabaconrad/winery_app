@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Package, Plus, Edit3, Trash2, Search } from "lucide-react";
+import { Package, Plus, Edit3, Trash2, Search, AlertTriangle } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import Modal from "@/components/Modal";
 import { Button, LoadingSpinner, EmptyState } from "@/components/ui";
@@ -69,6 +69,14 @@ export default function StockPage() {
     await fetch(`/api/stock?id=${id}`, { method: "DELETE" });
     fetchStock();
   };
+
+  const cleanupLegacyFinished = async () => {
+    if (!confirm("Remove all legacy (unlinked) finished goods? These are leftover items from before batches tracked their own inventory. This cannot be undone.")) return;
+    await fetch(`/api/stock?cleanupLegacy=true`, { method: "DELETE" });
+    fetchStock();
+  };
+
+  const legacyCount = items.filter((i) => i.category === "FINISHED" && !i.sourceBatch).length;
 
   const openEdit = (item: StockItem) => {
     setEditing(item);
@@ -142,6 +150,28 @@ export default function StockPage() {
           ))}
         </div>
       </div>
+
+      {/* Legacy finished goods warning */}
+      {legacyCount > 0 && (
+        <div className="flex items-start gap-3 p-4 rounded-xl" style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)" }}>
+          <AlertTriangle size={18} style={{ color: "#f59e0b", flexShrink: 0, marginTop: 2 }} />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold" style={{ color: "#f59e0b" }}>
+              {legacyCount} legacy finished good{legacyCount === 1 ? "" : "s"} detected
+            </p>
+            <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
+              These items were created before batches tracked their own inventory and aren&apos;t linked to any batch. Clean them up to keep each batch&apos;s products isolated.
+            </p>
+          </div>
+          <button
+            onClick={cleanupLegacyFinished}
+            className="px-3 py-2 rounded-lg text-xs font-medium shrink-0"
+            style={{ background: "rgba(245,158,11,0.15)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.3)" }}
+          >
+            Clean up
+          </button>
+        </div>
+      )}
 
       {/* Inventory Value Summary */}
       {items.length > 0 && (

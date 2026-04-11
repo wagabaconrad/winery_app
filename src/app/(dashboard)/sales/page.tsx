@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { ShoppingCart, Plus, Zap, UserPlus } from "lucide-react";
+import { ShoppingCart, Zap, UserPlus, Package, Search, X } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import Modal from "@/components/Modal";
 import { Button, LoadingSpinner, EmptyState } from "@/components/ui";
@@ -28,6 +28,7 @@ interface StockItem {
   unit: string;
   unitCost: number;
   category: string;
+  sourceBatch?: { id: string; name: string } | null;
 }
 
 interface Sale {
@@ -50,6 +51,11 @@ export default function SalesPage() {
   const [showCustomerModal, setShowCustomerModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savingCustomer, setSavingCustomer] = useState(false);
+
+  // Product picker popup
+  const [showPicker, setShowPicker] = useState(false);
+  const [pickerIndex, setPickerIndex] = useState<number | null>(null);
+  const [pickerSearch, setPickerSearch] = useState("");
 
   const [customerId, setCustomerId] = useState("");
   const [items, setItems] = useState<SaleItem[]>([
@@ -81,23 +87,36 @@ export default function SalesPage() {
     setItems(updated);
   };
 
-  // Selecting from the inventory dropdown binds the exact stock row by ID —
-  // no name-match fragility, so deduction on sale is guaranteed.
-  const selectStockItem = (index: number, stockItemId: string) => {
+  const openPicker = (index: number) => {
+    setPickerIndex(index);
+    setPickerSearch("");
+    setShowPicker(true);
+  };
+
+  const selectStockItem = (stock: StockItem) => {
+    if (pickerIndex === null) return;
     const updated = [...items];
-    const stock = finishedStock.find((s) => s.id === stockItemId);
-    if (stock) {
-      updated[index] = {
-        ...updated[index],
-        productName: stock.name,
-        unitCost: String(stock.unitCost),
-        stockItemId: stock.id,
-      };
-    } else {
-      updated[index] = { ...updated[index], productName: "", unitCost: "", stockItemId: "" };
-    }
+    updated[pickerIndex] = {
+      ...updated[pickerIndex],
+      productName: stock.name,
+      unitCost: String(stock.unitCost),
+      stockItemId: stock.id,
+    };
+    setItems(updated);
+    setShowPicker(false);
+    setPickerIndex(null);
+  };
+
+  const clearProduct = (index: number) => {
+    const updated = [...items];
+    updated[index] = { ...updated[index], productName: "", unitCost: "", stockItemId: "" };
     setItems(updated);
   };
+
+  const filteredPickerItems = finishedStock.filter((s) =>
+    s.name.toLowerCase().includes(pickerSearch.toLowerCase()) ||
+    (s.sourceBatch?.name || "").toLowerCase().includes(pickerSearch.toLowerCase())
+  );
 
   const removeItem = (index: number) => {
     if (items.length <= 1) return;
@@ -265,25 +284,19 @@ export default function SalesPage() {
 
             {items.map((item, idx) => {
               const stockItem = item.stockItemId ? finishedStock.find((s) => s.id === item.stockItemId) : null;
-              const availableStock = finishedStock.filter((s) => s.quantity > 0 || s.id === item.stockItemId);
               return (
                 <div key={idx} className="grid grid-cols-12 gap-2 mb-2 items-center">
                   <div className="col-span-4">
                     {finishedStock.length > 0 ? (
-                      <select
-                        value={item.stockItemId || ""}
-                        onChange={(e) => selectStockItem(idx, e.target.value)}
-                        required
-                        className="w-full px-3 py-2 rounded-xl text-xs outline-none"
-                        style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }}
+                      <button
+                        type="button"
+                        onClick={() => openPicker(idx)}
+                        className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-left"
+                        style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: item.productName ? "var(--text-primary)" : "var(--text-muted)", minWidth: 0 }}
                       >
-                        <option value="">Select product</option>
-                        {availableStock.map((s) => (
-                          <option key={s.id} value={s.id} disabled={s.quantity <= 0}>
-                            {s.name} — {s.quantity} {s.unit}{s.quantity <= 0 ? " (SOLD OUT)" : ""}
-                          </option>
-                        ))}
-                      </select>
+                        <Package size={13} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
+                        <span className="truncate">{item.productName || "Select product…"}</span>
+                      </button>
                     ) : (
                       <input
                         type="text"
@@ -296,9 +309,16 @@ export default function SalesPage() {
                       />
                     )}
                     {stockItem && (
-                      <p className="text-[10px] mt-0.5 px-1" style={{ color: "var(--text-muted)" }}>
-                        {stockItem.quantity} {stockItem.unit} in stock
-                      </p>
+                      <div className="mt-1 px-1">
+                        <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+                          {stockItem.quantity} {stockItem.unit} in stock
+                        </p>
+                        {stockItem.sourceBatch && (
+                          <p className="text-[10px] font-medium truncate" style={{ color: "#a78bfa" }}>
+                            Batch: {stockItem.sourceBatch.name}
+                          </p>
+                        )}
+                      </div>
                     )}
                   </div>
                   <input type="number" value={item.quantity} onChange={(e) => updateItem(idx, "quantity", e.target.value)} placeholder="Qty" min="1" required className="col-span-2 px-3 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }} />
@@ -318,9 +338,14 @@ export default function SalesPage() {
                     <span className="text-xs font-semibold" style={{ color: "var(--success)" }}>
                       {((parseFloat(String(item.quantity)) || 0) * (parseFloat(String(item.unitPrice)) || 0)).toLocaleString()}
                     </span>
-                    {items.length > 1 && (
-                      <button type="button" onClick={() => removeItem(idx)} className="text-xs" style={{ color: "var(--danger)" }}>✕</button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => (item.stockItemId ? clearProduct(idx) : items.length > 1 ? removeItem(idx) : null)}
+                      className="text-xs"
+                      style={{ color: "var(--danger)" }}
+                    >
+                      ✕
+                    </button>
                   </div>
                   <div className="col-span-1" />
                 </div>
@@ -361,6 +386,81 @@ export default function SalesPage() {
           </div>
           <Button type="submit" loading={savingCustomer} className="w-full">Add Customer</Button>
         </form>
+      </Modal>
+
+      {/* Product Picker Popup — lets the user choose finished goods grouped by batch */}
+      <Modal isOpen={showPicker} onClose={() => setShowPicker(false)} title="Select Product" maxWidth="520px">
+        <div className="space-y-3">
+          <div className="relative">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }} />
+            <input
+              type="text"
+              value={pickerSearch}
+              onChange={(e) => setPickerSearch(e.target.value)}
+              placeholder="Search by product or batch name…"
+              autoFocus
+              className="w-full pl-9 pr-4 py-2.5 rounded-xl text-sm outline-none"
+              style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }}
+            />
+          </div>
+
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+            Finished goods are shown with the batch that produced them. Sold-out items are disabled.
+          </p>
+
+          <div className="space-y-1.5 max-h-80 overflow-y-auto pr-1">
+            {filteredPickerItems.length === 0 ? (
+              <p className="text-center text-sm py-8" style={{ color: "var(--text-muted)" }}>
+                {finishedStock.length === 0 ? "No finished goods yet. Create a production batch first." : "No products match your search."}
+              </p>
+            ) : (
+              filteredPickerItems.map((item) => {
+                const soldOut = item.quantity <= 0;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    disabled={soldOut}
+                    onClick={() => selectStockItem(item)}
+                    className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)" }}
+                    onMouseEnter={(e) => { if (!soldOut) e.currentTarget.style.borderColor = "var(--accent-secondary)"; }}
+                    onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--border-color)")}
+                  >
+                    <div className="flex-1 min-w-0 mr-3">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold truncate" style={{ color: "var(--text-primary)" }}>{item.name}</p>
+                        {soldOut && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold shrink-0" style={{ background: "rgba(239,68,68,0.15)", color: "#ef4444" }}>
+                            SOLD OUT
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-1 flex items-center gap-2 flex-wrap">
+                        <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ background: "rgba(139,92,246,0.12)", color: "#a78bfa" }}>
+                          Batch: {item.sourceBatch?.name || "Legacy (unlinked)"}
+                        </span>
+                        <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+                          {item.quantity} {item.unit} • {item.unitCost.toLocaleString()}/{item.unit}
+                        </span>
+                      </div>
+                    </div>
+                    <Package size={16} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
+                  </button>
+                );
+              })
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowPicker(false)}
+            className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-medium"
+            style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-secondary)" }}
+          >
+            <X size={14} /> Cancel
+          </button>
+        </div>
       </Modal>
     </div>
   );
