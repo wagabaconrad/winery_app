@@ -33,7 +33,7 @@ export default function StockPage() {
     try {
       const res = await fetch("/api/stock");
       const json = await res.json();
-      setItems(json);
+      setItems(Array.isArray(json) ? json : []);
     } finally {
       setLoading(false);
     }

@@ -47,6 +47,10 @@ export default function BatchesPage() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // Delete confirmation state
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
   // Inventory picker state
   const [showPicker, setShowPicker] = useState(false);
   const [pickerIndex, setPickerIndex] = useState<number | null>(null);
@@ -149,14 +153,20 @@ export default function BatchesPage() {
     setShowModal(true);
   };
 
-  const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Delete batch "${name}"? This cannot be undone.`)) return;
-    const res = await fetch(`/api/batches?id=${id}`, { method: "DELETE" });
-    if (res.ok) {
-      setBatches(batches.filter((b) => b.id !== id));
-    } else {
-      const err = await res.json();
-      alert(err.error || "Failed to delete batch");
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/batches?id=${deleteTarget.id}`, { method: "DELETE" });
+      if (res.ok) {
+        setBatches(batches.filter((b) => b.id !== deleteTarget.id));
+        setDeleteTarget(null);
+      } else {
+        const err = await res.json();
+        alert(err.error || "Failed to delete batch");
+      }
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -289,7 +299,7 @@ export default function BatchesPage() {
                     <Edit3 size={15} />
                   </button>
                   <button
-                    onClick={(e) => { e.stopPropagation(); handleDelete(batch.id, batch.name); }}
+                    onClick={(e) => { e.stopPropagation(); setDeleteTarget({ id: batch.id, name: batch.name }); }}
                     className="p-2 rounded-lg"
                     style={{ color: "var(--danger)" }}
                     title="Delete batch"
@@ -474,6 +484,27 @@ export default function BatchesPage() {
 
           <Button type="submit" loading={saving} className="w-full">{editingBatch ? "Save Changes" : "Create Batch"}</Button>
         </form>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Delete Batch" maxWidth="400px">
+        <div className="space-y-4">
+          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+            Are you sure you want to delete <span className="font-semibold" style={{ color: "var(--text-primary)" }}>&ldquo;{deleteTarget?.name}&rdquo;</span>? This cannot be undone.
+          </p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setDeleteTarget(null)}
+              className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium"
+              style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-secondary)" }}
+            >
+              Cancel
+            </button>
+            <Button onClick={confirmDelete} loading={deleting} className="flex-1" style={{ background: "var(--danger)" }}>
+              Delete
+            </Button>
+          </div>
+        </div>
       </Modal>
 
       {/* Inventory Picker Popup */}
