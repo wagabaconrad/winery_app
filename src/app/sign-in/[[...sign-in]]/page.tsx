@@ -1,17 +1,13 @@
 import { SignIn } from "@clerk/nextjs";
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { Wine, ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import SignInStuckHelper from "./StuckHelper";
 
-export default async function SignInPage() {
-  const { userId } = await auth();
-  if (userId) redirect("/dashboard");
-
+export default function SignInPage() {
   return (
     <div className="flex h-screen w-full items-center justify-center bg-black relative">
-      {/* Top nav — always visible, no Clerk JS needed */}
+      {/* Top nav */}
       <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-6 py-4">
         <Link
           href="/"
@@ -41,6 +37,9 @@ export default async function SignInPage() {
         <Suspense fallback={<SignInSkeleton />}>
           <SignIn fallbackRedirectUrl="/dashboard" />
         </Suspense>
+
+        {/* Shows a "stuck?" reset link after a few seconds */}
+        <SignInStuckHelper />
       </div>
     </div>
   );

@@ -41,7 +41,12 @@ export async function POST(request: NextRequest) {
     let totalAmount = 0;
     let totalCOGS = 0;
 
-    const processedItems = items.map((item: { productName: string; quantity: number; unitPrice: number; unitCost?: number; stockItemId?: string }) => {
+    // processedItems holds DB fields only (no stockItemId — not a SaleItem column)
+    // stockItemIds is a parallel array used only for inventory deduction
+    const processedItems: { productName: string; quantity: number; unitPrice: number; unitCost: number; total: number }[] = [];
+    const stockItemIds: (string | null)[] = [];
+
+    for (const item of items as { productName: string; quantity: number; unitPrice: number; unitCost?: number; stockItemId?: string }[]) {
       if (!item.productName || typeof item.productName !== "string" || !item.productName.trim()) {
         throw Object.assign(new Error("Each item must have a product name"), { status: 400 });
       }
@@ -55,15 +60,9 @@ export async function POST(request: NextRequest) {
       totalAmount += lineTotal;
       totalCOGS += qty * cost;
 
-      return {
-        productName: item.productName.trim(),
-        quantity: qty,
-        unitPrice: price,
-        unitCost: cost,
-        total: lineTotal,
-        stockItemId: item.stockItemId || null,
-      };
-    });
+      processedItems.push({ productName: item.productName.trim(), quantity: qty, unitPrice: price, unitCost: cost, total: lineTotal });
+      stockItemIds.push(item.stockItemId || null);
+    }
 
     const profit = totalAmount - totalCOGS;
 
@@ -82,9 +81,7 @@ export async function POST(request: NextRequest) {
           totalAmount,
           costOfGoods: totalCOGS,
           profit,
-          items: {
-            create: processedItems,
-          },
+          items: { create: processedItems },
         },
         include: { items: true },
       });
@@ -92,12 +89,15 @@ export async function POST(request: NextRequest) {
       // Deduct sold quantities from FINISHED goods inventory
       const affectedBatchIds = new Set<string>();
 
-      for (const item of processedItems) {
+      for (let i = 0; i < processedItems.length; i++) {
+        const item = processedItems[i];
+        const stockItemId = stockItemIds[i];
+
         // Prefer direct ID lookup (set when user selects from inventory picker)
         // Fall back to name match for manually typed products
         let stockItem: { id: string; businessId: string; quantity: number; unitCost: number; sourceBatchId: string | null } | null = null;
-        if (item.stockItemId) {
-          stockItem = await tx.stockItem.findUnique({ where: { id: item.stockItemId } });
+        if (stockItemId) {
+          stockItem = await tx.stockItem.findUnique({ where: { id: stockItemId } });
         } else {
           stockItem = await tx.stockItem.findFirst({
             where: { businessId, name: item.productName, category: "FINISHED" },
@@ -108,12 +108,8 @@ export async function POST(request: NextRequest) {
           const newQty = Math.max(0, stockItem.quantity - item.quantity);
           await tx.stockItem.update({
             where: { id: stockItem.id },
-            data: {
-              quantity: newQty,
-              totalValue: newQty * stockItem.unitCost,
-            },
+            data: { quantity: newQty, totalValue: newQty * stockItem.unitCost },
           });
-          // Track which batches had stock deducted
           if (stockItem.sourceBatchId) {
             affectedBatchIds.add(stockItem.sourceBatchId);
           }
