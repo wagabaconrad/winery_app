@@ -295,20 +295,41 @@ export default function EventsPage() {
               <button type="button" onClick={addItem} className="text-xs font-medium" style={{ color: "var(--accent-secondary)" }}>+ Add Item</button>
             </div>
             {form.items.map((item, idx) => (
-              <div key={idx} className="grid grid-cols-[1fr_0.6fr_0.5fr_0.6fr_auto] gap-2 mb-2 items-center">
-                <input type="text" value={item.name} onChange={(e) => updateItem(idx, "name", e.target.value)} placeholder="e.g. Chicken" className="px-3 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }} />
-                <input type="number" value={item.quantity} onChange={(e) => updateItem(idx, "quantity", e.target.value)} placeholder="Qty" min="0" step="any" className="px-3 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }} />
-                <select value={item.unit} onChange={(e) => updateItem(idx, "unit", e.target.value)} className="px-2 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }}>
-                  <option value="kg">kg</option>
-                  <option value="pieces">pcs</option>
-                  <option value="liters">L</option>
-                  <option value="units">units</option>
-                  <option value="packs">packs</option>
-                </select>
-                <input type="number" value={item.unitCost} onChange={(e) => updateItem(idx, "unitCost", e.target.value)} placeholder="Cost" min="0" step="any" className="px-3 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }} />
-                {form.items.length > 1 && (
-                  <button type="button" onClick={() => removeItem(idx)} className="text-xs px-2 py-2 rounded-lg" style={{ color: "var(--danger)" }}>x</button>
-                )}
+              <div key={idx} className="mb-2">
+                {/* Mobile: name full width, then qty/unit/cost in a row */}
+                <div className="sm:hidden space-y-1.5">
+                  <input type="text" value={item.name} onChange={(e) => updateItem(idx, "name", e.target.value)} placeholder="e.g. Chicken" className="w-full px-3 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }} />
+                  <div className="flex gap-1.5 items-center">
+                    <input type="number" value={item.quantity} onChange={(e) => updateItem(idx, "quantity", e.target.value)} placeholder="Qty" min="0" step="any" className="w-1/5 px-2 py-2 rounded-xl text-xs outline-none text-center" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }} />
+                    <select value={item.unit} onChange={(e) => updateItem(idx, "unit", e.target.value)} className="w-1/5 px-1 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }}>
+                      <option value="kg">kg</option>
+                      <option value="pieces">pcs</option>
+                      <option value="liters">L</option>
+                      <option value="units">units</option>
+                      <option value="packs">packs</option>
+                    </select>
+                    <input type="number" value={item.unitCost} onChange={(e) => updateItem(idx, "unitCost", e.target.value)} placeholder="Unit cost" min="0" step="any" className="flex-1 px-2 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }} />
+                    {form.items.length > 1 && (
+                      <button type="button" onClick={() => removeItem(idx)} className="text-xs px-2 py-2 rounded-lg shrink-0" style={{ color: "var(--danger)" }}>✕</button>
+                    )}
+                  </div>
+                </div>
+                {/* Desktop: original 5-column fraction grid */}
+                <div className="hidden sm:grid sm:grid-cols-[1fr_0.6fr_0.5fr_0.6fr_auto] gap-2 items-center">
+                  <input type="text" value={item.name} onChange={(e) => updateItem(idx, "name", e.target.value)} placeholder="e.g. Chicken" className="px-3 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }} />
+                  <input type="number" value={item.quantity} onChange={(e) => updateItem(idx, "quantity", e.target.value)} placeholder="Qty" min="0" step="any" className="px-3 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }} />
+                  <select value={item.unit} onChange={(e) => updateItem(idx, "unit", e.target.value)} className="px-2 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }}>
+                    <option value="kg">kg</option>
+                    <option value="pieces">pcs</option>
+                    <option value="liters">L</option>
+                    <option value="units">units</option>
+                    <option value="packs">packs</option>
+                  </select>
+                  <input type="number" value={item.unitCost} onChange={(e) => updateItem(idx, "unitCost", e.target.value)} placeholder="Cost" min="0" step="any" className="px-3 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }} />
+                  {form.items.length > 1 && (
+                    <button type="button" onClick={() => removeItem(idx)} className="text-xs px-2 py-2 rounded-lg" style={{ color: "var(--danger)" }}>✕</button>
+                  )}
+                </div>
               </div>
             ))}
           </div>

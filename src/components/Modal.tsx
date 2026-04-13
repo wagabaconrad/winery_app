@@ -45,6 +45,7 @@ export default function Modal({
               maxWidth,
               maxHeight: "85vh",
               width: "100%",
+              minWidth: 0,
             }}
           >
             {/* Header */}

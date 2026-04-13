@@ -274,8 +274,8 @@ export default function SalesPage() {
               <button type="button" onClick={addItem} className="text-xs font-medium" style={{ color: "var(--accent-secondary)" }}>+ Add Item</button>
             </div>
 
-            {/* Column headers */}
-            <div className="grid grid-cols-12 gap-2 mb-1">
+            {/* Column headers — desktop only */}
+            <div className="hidden sm:grid sm:grid-cols-12 gap-2 mb-1">
               <p className="col-span-4 text-[10px]" style={{ color: "var(--text-muted)" }}>Product</p>
               <p className="col-span-2 text-[10px]" style={{ color: "var(--text-muted)" }}>Qty</p>
               <p className="col-span-3 text-[10px]" style={{ color: "var(--text-muted)" }}>Sell Price</p>
@@ -284,70 +284,99 @@ export default function SalesPage() {
 
             {items.map((item, idx) => {
               const stockItem = item.stockItemId ? finishedStock.find((s) => s.id === item.stockItemId) : null;
+              const lineTotal = ((parseFloat(String(item.quantity)) || 0) * (parseFloat(String(item.unitPrice)) || 0)).toLocaleString();
+              const productField = finishedStock.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => openPicker(idx)}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-left"
+                  style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: item.productName ? "var(--text-primary)" : "var(--text-muted)", minWidth: 0 }}
+                >
+                  <Package size={13} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
+                  <span className="truncate">{item.productName || "Select product…"}</span>
+                </button>
+              ) : (
+                <input
+                  type="text"
+                  value={item.productName}
+                  onChange={(e) => updateItem(idx, "productName", e.target.value)}
+                  placeholder="Product name"
+                  required
+                  className="w-full px-3 py-2 rounded-xl text-xs outline-none"
+                  style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }}
+                />
+              );
+              const stockMeta = stockItem ? (
+                <div className="mt-1 px-1">
+                  <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+                    {stockItem.quantity} {stockItem.unit} in stock
+                  </p>
+                  {stockItem.sourceBatch && (
+                    <p className="text-[10px] font-medium truncate" style={{ color: "#a78bfa" }}>
+                      Batch: {stockItem.sourceBatch.name}
+                    </p>
+                  )}
+                </div>
+              ) : null;
+              const deleteBtn = (
+                <button
+                  type="button"
+                  onClick={() => (item.stockItemId ? clearProduct(idx) : items.length > 1 ? removeItem(idx) : null)}
+                  className="text-xs p-1"
+                  style={{ color: "var(--danger)" }}
+                >
+                  ✕
+                </button>
+              );
+
               return (
-                <div key={idx} className="grid grid-cols-12 gap-2 mb-2 items-center">
-                  <div className="col-span-4">
-                    {finishedStock.length > 0 ? (
-                      <button
-                        type="button"
-                        onClick={() => openPicker(idx)}
-                        className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-left"
-                        style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: item.productName ? "var(--text-primary)" : "var(--text-muted)", minWidth: 0 }}
-                      >
-                        <Package size={13} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
-                        <span className="truncate">{item.productName || "Select product…"}</span>
-                      </button>
-                    ) : (
-                      <input
-                        type="text"
-                        value={item.productName}
-                        onChange={(e) => updateItem(idx, "productName", e.target.value)}
-                        placeholder="Product name"
-                        required
-                        className="w-full px-3 py-2 rounded-xl text-xs outline-none"
-                        style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }}
-                      />
-                    )}
-                    {stockItem && (
-                      <div className="mt-1 px-1">
-                        <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-                          {stockItem.quantity} {stockItem.unit} in stock
-                        </p>
-                        {stockItem.sourceBatch && (
-                          <p className="text-[10px] font-medium truncate" style={{ color: "#a78bfa" }}>
-                            Batch: {stockItem.sourceBatch.name}
-                          </p>
+                <div key={idx} className="mb-3 sm:mb-2">
+                  {/* Mobile layout: stacked two-row card */}
+                  <div className="sm:hidden space-y-2">
+                    <div>
+                      {productField}
+                      {stockMeta}
+                    </div>
+                    <div className="flex gap-2 items-center">
+                      <input type="number" value={item.quantity} onChange={(e) => updateItem(idx, "quantity", e.target.value)} placeholder="Qty" min="1" required className="w-1/5 px-2 py-2 rounded-xl text-xs outline-none text-center" style={{ background: "var(--bg-card)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }} />
+                      <div className="flex-1 space-y-1">
+                        <input type="number" value={item.unitPrice} onChange={(e) => updateItem(idx, "unitPrice", e.target.value)} placeholder="Sell price" min="0" required className="w-full px-2 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--bg-card)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }} />
+                        {!stockItem && (
+                          <input type="number" value={item.unitCost} onChange={(e) => updateItem(idx, "unitCost", e.target.value)} placeholder="Unit cost (optional)" min="0" className="w-full px-2 py-1.5 rounded-xl text-[10px] outline-none" style={{ background: "var(--bg-card)", border: "1px solid var(--border-color)", color: "var(--text-muted)" }} />
+                        )}
+                        {stockItem && (
+                          <p className="text-[10px] px-1" style={{ color: "var(--text-muted)" }}>Cost: {stockItem.unitCost.toLocaleString()} (auto)</p>
                         )}
                       </div>
-                    )}
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs font-semibold" style={{ color: "var(--success)" }}>{lineTotal}</span>
+                        {deleteBtn}
+                      </div>
+                    </div>
                   </div>
-                  <input type="number" value={item.quantity} onChange={(e) => updateItem(idx, "quantity", e.target.value)} placeholder="Qty" min="1" required className="col-span-2 px-3 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }} />
-                  <div className="col-span-3 space-y-1">
-                    <input type="number" value={item.unitPrice} onChange={(e) => updateItem(idx, "unitPrice", e.target.value)} placeholder="Sell price" min="0" required className="w-full px-3 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }} />
-                    {/* Cost (hidden if auto-filled from stock, shown as small label) */}
-                    {!stockItem && (
-                      <input type="number" value={item.unitCost} onChange={(e) => updateItem(idx, "unitCost", e.target.value)} placeholder="Unit cost" min="0" className="w-full px-3 py-1.5 rounded-xl text-[10px] outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-muted)" }} />
-                    )}
-                    {stockItem && (
-                      <p className="text-[10px] px-1" style={{ color: "var(--text-muted)" }}>
-                        Cost: {stockItem.unitCost.toLocaleString()} (auto)
-                      </p>
-                    )}
+
+                  {/* Desktop layout: original 12-col grid */}
+                  <div className="hidden sm:grid sm:grid-cols-12 gap-2 items-center">
+                    <div className="col-span-4">
+                      {productField}
+                      {stockMeta}
+                    </div>
+                    <input type="number" value={item.quantity} onChange={(e) => updateItem(idx, "quantity", e.target.value)} placeholder="Qty" min="1" required className="col-span-2 px-3 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }} />
+                    <div className="col-span-3 space-y-1">
+                      <input type="number" value={item.unitPrice} onChange={(e) => updateItem(idx, "unitPrice", e.target.value)} placeholder="Sell price" min="0" required className="w-full px-3 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }} />
+                      {!stockItem && (
+                        <input type="number" value={item.unitCost} onChange={(e) => updateItem(idx, "unitCost", e.target.value)} placeholder="Unit cost" min="0" className="w-full px-3 py-1.5 rounded-xl text-[10px] outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-muted)" }} />
+                      )}
+                      {stockItem && (
+                        <p className="text-[10px] px-1" style={{ color: "var(--text-muted)" }}>Cost: {stockItem.unitCost.toLocaleString()} (auto)</p>
+                      )}
+                    </div>
+                    <div className="col-span-2 flex items-center justify-between pl-1">
+                      <span className="text-xs font-semibold" style={{ color: "var(--success)" }}>{lineTotal}</span>
+                      {deleteBtn}
+                    </div>
+                    <div className="col-span-1" />
                   </div>
-                  <div className="col-span-2 flex items-center justify-between pl-1">
-                    <span className="text-xs font-semibold" style={{ color: "var(--success)" }}>
-                      {((parseFloat(String(item.quantity)) || 0) * (parseFloat(String(item.unitPrice)) || 0)).toLocaleString()}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => (item.stockItemId ? clearProduct(idx) : items.length > 1 ? removeItem(idx) : null)}
-                      className="text-xs"
-                      style={{ color: "var(--danger)" }}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                  <div className="col-span-1" />
                 </div>
               );
             })}
@@ -374,7 +403,7 @@ export default function SalesPage() {
             <label className="block text-xs font-medium" style={{ color: "var(--text-secondary)" }}>Name</label>
             <input type="text" value={newCustomer.name} onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })} required placeholder="Customer name" className="w-full px-4 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }} />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="block text-xs font-medium" style={{ color: "var(--text-secondary)" }}>Phone</label>
               <input type="text" value={newCustomer.phone} onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })} placeholder="Optional" className="w-full px-4 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }} />

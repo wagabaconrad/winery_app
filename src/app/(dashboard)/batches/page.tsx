@@ -403,7 +403,7 @@ export default function BatchesPage() {
       {/* Create / Edit Batch Modal */}
       <Modal isOpen={showModal} onClose={closeModal} title={editingBatch ? "Edit Batch" : "Create Production Batch"} maxWidth="600px">
         <form onSubmit={handleSubmit} className="space-y-5">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="block text-xs font-medium" style={{ color: "var(--text-secondary)" }}>Batch Name</label>
               <input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Wine Batch A" required className="w-full px-4 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }} />
@@ -426,7 +426,7 @@ export default function BatchesPage() {
               <p className="text-xs font-medium" style={{ color: "#10b981" }}>Finished Goods Output</p>
               <p className="text-[10px] mt-0.5" style={{ color: "var(--text-muted)" }}>How many bottles, jerrycans, or cans this batch produces — added to inventory automatically.</p>
             </div>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 sm:grid-cols-3 gap-2">
               <div className="space-y-1">
                 <label className="block text-[10px]" style={{ color: "var(--text-muted)" }}>Bottles</label>
                 <input type="number" value={form.bottleCount} onChange={(e) => setForm({ ...form, bottleCount: e.target.value })} placeholder="0" min="0" className="w-full px-3 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }} />
