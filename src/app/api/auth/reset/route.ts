@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 // Emergency session reset — wipes all Clerk cookies so the browser starts
 // fresh. Useful when a stale __client_uat / __session cookie is making
 // every request trigger a slow handshake in dev.
-export async function GET() {
+export async function GET(request: Request) {
   const store = await cookies();
   const all = store.getAll();
 
@@ -20,7 +20,9 @@ export async function GET() {
     }
   }
 
-  const res = NextResponse.redirect(new URL("/", process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"));
+  // Derive origin from the actual request so this works on any domain
+  const origin = new URL(request.url).origin;
+  const res = NextResponse.redirect(new URL("/sign-in", origin));
   // Belt-and-braces: also set them to empty with maxAge 0 on the response
   for (const c of all) {
     if (

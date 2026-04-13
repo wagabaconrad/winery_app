@@ -95,7 +95,7 @@ export default async function Home() {
                alt="Classic Red Wine Glass"
                height={1080}
                width={1920}
-               className="mx-auto rounded-2xl object-cover h-full object-left-top"
+               className="mx-auto rounded-2xl object-cover h-full object-center sm:object-left-top"
                draggable={false}
                priority
                unoptimized
