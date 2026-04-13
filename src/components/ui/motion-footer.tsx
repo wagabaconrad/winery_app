@@ -389,6 +389,9 @@ export function CinematicFooter() {
               <a href="tel:0751929535" className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-white/5 border border-white/10 rounded-2xl text-white font-medium hover:bg-white/10 transition-colors">
                 <span className="opacity-50 text-sm">Call</span> 0751929535
               </a>
+              <a href="https://www.instagram.com/naughty_code_systems" target="_blank" rel="noopener noreferrer" className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-white/5 border border-white/10 rounded-2xl text-white font-medium hover:bg-white/10 transition-colors">
+                <span className="opacity-50 text-sm">Instagram</span> @naughty_code_systems
+              </a>
             </div>
           </div>
         </div>
