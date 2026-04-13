@@ -3,12 +3,13 @@ import { Suspense } from "react";
 import { Wine, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import SignInStuckHelper from "./StuckHelper";
+import AuthPageWrapper from "@/components/AuthPageWrapper";
 
 export default function SignInPage() {
   return (
-    <div className="flex h-screen w-full items-center justify-center bg-black relative">
+    <div className="flex h-screen w-full items-center justify-center bg-black relative overflow-hidden">
       {/* Top nav */}
-      <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-6 py-4">
+      <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-6 py-4 z-10">
         <Link
           href="/"
           className="flex items-center gap-2 text-sm font-medium transition-colors text-[#9898a8] hover:text-[#f0f0f5]"
@@ -18,6 +19,7 @@ export default function SignInPage() {
         </Link>
       </div>
 
+      <AuthPageWrapper>
       <div className="flex flex-col items-center w-full max-w-md px-4">
         {/* Logo */}
         <div className="flex items-center gap-3 mb-8 justify-center">
@@ -41,6 +43,7 @@ export default function SignInPage() {
         {/* Shows a "stuck?" reset link after a few seconds */}
         <SignInStuckHelper />
       </div>
+      </AuthPageWrapper>
     </div>
   );
 }

@@ -4,15 +4,16 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { Wine, ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import AuthPageWrapper from "@/components/AuthPageWrapper";
 
 export default async function SignUpPage() {
   const { userId } = await auth();
   if (userId) redirect("/dashboard");
 
   return (
-    <div className="flex min-h-screen w-full items-center justify-center bg-black py-12 relative">
+    <div className="flex min-h-screen w-full items-center justify-center bg-black py-12 relative overflow-hidden">
       {/* Top nav — always visible */}
-      <div className="absolute top-0 left-0 right-0 flex items-center px-6 py-4">
+      <div className="absolute top-0 left-0 right-0 flex items-center px-6 py-4 z-10">
         <Link
           href="/"
           className="flex items-center gap-2 text-sm font-medium transition-colors text-[#9898a8] hover:text-[#f0f0f5]"
@@ -22,26 +23,28 @@ export default async function SignUpPage() {
         </Link>
       </div>
 
-      <div className="flex flex-col items-center w-full max-w-md px-4">
-        {/* Logo */}
-        <div className="flex items-center gap-3 mb-8 justify-center">
-          <div
-            className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-2xl"
-            style={{ background: "var(--accent-gradient)" }}
-          >
-            <Wine size={26} className="text-white" />
+      <AuthPageWrapper>
+        <div className="flex flex-col items-center w-full max-w-md px-4">
+          {/* Logo */}
+          <div className="flex items-center gap-3 mb-8 justify-center">
+            <div
+              className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-2xl"
+              style={{ background: "var(--accent-gradient)" }}
+            >
+              <Wine size={26} className="text-white" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold tracking-tight text-[#f0f0f5]">Winery OS</h1>
+              <p className="text-xs tracking-widest uppercase font-bold text-[#9898a8]">Intelligence</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-xl font-bold tracking-tight text-[#f0f0f5]">Winery OS</h1>
-            <p className="text-xs tracking-widest uppercase font-bold text-[#9898a8]">Intelligence</p>
-          </div>
-        </div>
 
-        {/* Clerk widget with skeleton fallback */}
-        <Suspense fallback={<SignUpSkeleton />}>
-          <SignUp fallbackRedirectUrl="/dashboard" />
-        </Suspense>
-      </div>
+          {/* Clerk widget with skeleton fallback */}
+          <Suspense fallback={<SignUpSkeleton />}>
+            <SignUp fallbackRedirectUrl="/dashboard" />
+          </Suspense>
+        </div>
+      </AuthPageWrapper>
     </div>
   );
 }

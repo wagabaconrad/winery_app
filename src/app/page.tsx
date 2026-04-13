@@ -3,6 +3,7 @@ import { BackgroundPaths } from "@/components/ui/background-paths";
 import { ContainerScroll } from "@/components/ui/container-scroll-animation";
 import { CinematicFooter } from "@/components/ui/motion-footer";
 import { Button } from "@/components/ui/button";
+import { SignInButton, GetStartedButton } from "@/components/LandingNavButtons";
 import Image from "next/image";
 import Link from "next/link";
 import { Wine, ArrowRight } from "lucide-react";
@@ -29,10 +30,8 @@ export default async function Home() {
                  </Link>
               ) : (
                  <div className="flex items-center gap-4">
-                   <Link href="/sign-in" className="text-sm font-medium text-gray-300 hover:text-white transition">Sign In</Link>
-                   <Link href="/sign-up" className="px-5 py-2.5 rounded-full text-sm font-semibold bg-white text-black transition hover:bg-gray-200">
-                     Get Started
-                   </Link>
+                   <SignInButton />
+                   <GetStartedButton />
                  </div>
               )}
             </div>
