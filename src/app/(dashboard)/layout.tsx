@@ -1,4 +1,5 @@
 import Sidebar from "@/components/Sidebar";
+import PageTransition from "@/components/PageTransition";
 import { BusinessProvider } from "@/contexts/BusinessContext";
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
@@ -22,7 +23,7 @@ export default async function AppLayout({
           className="transition-all duration-300 lg:ml-[260px] min-h-screen"
         >
           <div className="px-4 sm:px-6 lg:px-8 py-6 pt-16 lg:pt-6 max-w-7xl mx-auto">
-            {children}
+            <PageTransition>{children}</PageTransition>
           </div>
         </main>
       </div>
