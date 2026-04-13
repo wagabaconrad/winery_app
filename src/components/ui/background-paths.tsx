@@ -20,7 +20,7 @@ function FloatingPaths({ position }: { position: number }) {
     return (
         <div className="absolute inset-0 pointer-events-none">
             <svg
-                className="w-full h-full text-slate-950 dark:text-white"
+                className="w-full h-full text-white"
                 viewBox="0 0 696 316"
                 fill="none"
             >
@@ -60,7 +60,7 @@ export function BackgroundPaths({
     const words = title.split(" ");
 
     return (
-        <div className="relative min-h-[90vh] w-full flex items-center justify-center overflow-hidden bg-white dark:bg-neutral-950">
+        <div className="relative min-h-[90vh] w-full flex items-center justify-center overflow-hidden bg-neutral-950">
             <div className="absolute inset-0">
                 <FloatingPaths position={1} />
                 <FloatingPaths position={-1} />
@@ -92,9 +92,8 @@ export function BackgroundPaths({
                                             stiffness: 150,
                                             damping: 25,
                                         }}
-                                        className="inline-block text-transparent bg-clip-text 
-                                        bg-gradient-to-r from-neutral-900 to-neutral-700/80 
-                                        dark:from-white dark:to-white/80"
+                                        className="inline-block text-transparent bg-clip-text
+                                        bg-gradient-to-r from-white to-white/80"
                                     >
                                         {letter}
                                     </motion.span>
@@ -104,8 +103,7 @@ export function BackgroundPaths({
                     </h1>
 
                     <div
-                        className="inline-block group relative bg-gradient-to-b from-black/10 to-white/10 
-                        dark:from-white/10 dark:to-black/10 p-px rounded-2xl backdrop-blur-lg 
+                        className="inline-block group relative bg-gradient-to-b from-white/10 to-black/10 p-px rounded-2xl backdrop-blur-lg
                         overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300"
                     >
                         {actionButton ? actionButton : (
