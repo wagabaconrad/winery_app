@@ -83,19 +83,15 @@ export default function InvoicesPage() {
     });
   }, []);
 
-  // Works on desktop (download) and mobile (opens in new tab for share/save)
   const openPDF = useCallback((blob: Blob, filename: string) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = filename;
-    a.target = "_blank";
-    a.rel = "noopener noreferrer";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    // Keep URL alive briefly so the browser can open it
-    setTimeout(() => URL.revokeObjectURL(url), 30_000);
+    setTimeout(() => URL.revokeObjectURL(url), 5_000);
   }, []);
 
   const downloadPDF = useCallback((invoice: InvoiceRecord) => {

@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { motion } from "framer-motion";
-import { BarChart3, TrendingUp, ShoppingCart, Receipt } from "lucide-react";
+import React, { useEffect, useState, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { BarChart3, TrendingUp, ShoppingCart, Receipt, Download, FileText, Sheet } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   LineChart, Line, PieChart, Pie, Cell, Legend,
@@ -10,19 +10,8 @@ import {
 import PageHeader from "@/components/PageHeader";
 import StatCard from "@/components/StatCard";
 import { LoadingSpinner } from "@/components/ui";
-
-interface ReportData {
-  period: string;
-  totalRevenue: number;
-  totalCOGS: number;
-  totalExpenses: number;
-  netProfit: number;
-  salesCount: number;
-  batchCount: number;
-  chartData: { date: string; revenue: number; expenses: number; profit: number }[];
-  bestSellers: { name: string; quantity: number; revenue: number }[];
-  expenseBreakdown: { category: string; amount: number }[];
-}
+import { useBusinessContext } from "@/contexts/BusinessContext";
+import { exportReportPDF, exportReportCSV, triggerDownload, ReportData } from "@/lib/report-export";
 
 const COLORS = ["#7c3aed", "#a855f7", "#3b82f6", "#10b981", "#f59e0b", "#ec4899", "#06b6d4"];
 
@@ -30,6 +19,9 @@ export default function ReportsPage() {
   const [data, setData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState("monthly");
+  const [showExport, setShowExport] = useState(false);
+  const exportRef = useRef<HTMLDivElement>(null);
+  const { businessName, currency } = useBusinessContext();
 
   useEffect(() => {
     setLoading(true);
@@ -37,6 +29,31 @@ export default function ReportsPage() {
       .then((r) => r.json())
       .then((d) => { setData(d); setLoading(false); });
   }, [period]);
+
+  // Close export dropdown when clicking outside
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (exportRef.current && !exportRef.current.contains(e.target as Node)) {
+        setShowExport(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const handleExportPDF = () => {
+    if (!data) return;
+    setShowExport(false);
+    const blob = exportReportPDF(data, businessName || "Winery OS", currency || "UGX");
+    triggerDownload(blob, `report-${period}-${new Date().toISOString().slice(0,10)}.pdf`);
+  };
+
+  const handleExportCSV = () => {
+    if (!data) return;
+    setShowExport(false);
+    const blob = exportReportCSV(data, businessName || "Winery OS", currency || "UGX");
+    triggerDownload(blob, `report-${period}-${new Date().toISOString().slice(0,10)}.csv`);
+  };
 
   const periods = [
     { value: "daily", label: "Today" },
@@ -50,7 +67,52 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <PageHeader title="Reports & Analytics" description="Financial reports and performance insights" />
+      <div className="flex items-start justify-between gap-4">
+        <PageHeader title="Reports & Analytics" description="Financial reports and performance insights" />
+
+        {/* Export button */}
+        <div className="relative shrink-0" ref={exportRef}>
+          <button
+            onClick={() => setShowExport((v) => !v)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all active:scale-95"
+            style={{ background: "var(--accent-gradient)", color: "#fff" }}
+          >
+            <Download size={15} />
+            <span className="hidden sm:inline">Export</span>
+          </button>
+
+          <AnimatePresence>
+            {showExport && (
+              <motion.div
+                initial={{ opacity: 0, y: -6, scale: 0.97 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -6, scale: 0.97 }}
+                transition={{ duration: 0.12 }}
+                className="absolute right-0 mt-2 w-44 rounded-2xl overflow-hidden z-50 shadow-2xl"
+                style={{ background: "var(--bg-card)", border: "1px solid var(--border-color)" }}
+              >
+                <button
+                  onClick={handleExportPDF}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors hover:bg-white/5 text-left"
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  <FileText size={15} style={{ color: "#ef4444" }} />
+                  Download PDF
+                </button>
+                <div style={{ borderTop: "1px solid var(--border-color)" }} />
+                <button
+                  onClick={handleExportCSV}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors hover:bg-white/5 text-left"
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  <Sheet size={15} style={{ color: "#10b981" }} />
+                  Download CSV
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
 
       {/* Period Tabs */}
       <div className="flex gap-2 overflow-x-auto pb-1">
