@@ -83,6 +83,21 @@ export default function InvoicesPage() {
     });
   }, []);
 
+  // Works on desktop (download) and mobile (opens in new tab for share/save)
+  const openPDF = useCallback((blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    // Keep URL alive briefly so the browser can open it
+    setTimeout(() => URL.revokeObjectURL(url), 30_000);
+  }, []);
+
   const downloadPDF = useCallback((invoice: InvoiceRecord) => {
     const data: InvoiceData = {
       invoiceNumber: invoice.invoiceNumber,
@@ -95,15 +110,8 @@ export default function InvoicesPage() {
       items: invoice.sale.items,
       totalAmount: invoice.sale.totalAmount,
     };
-
-    const pdfDataUri = generateInvoicePDF(data);
-    const link = document.createElement("a");
-    link.href = pdfDataUri;
-    link.download = `${invoice.invoiceNumber}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  }, [businessName, currency]);
+    openPDF(generateInvoicePDF(data), `${invoice.invoiceNumber}.pdf`);
+  }, [businessName, currency, openPDF]);
 
   const downloadEventPDF = useCallback((inv: EventInvoiceRecord) => {
     const data: EventInvoiceData = {
@@ -122,15 +130,8 @@ export default function InvoicesPage() {
       customerBudget: inv.budgetAmount,
       plateCount: inv.event.plateCount,
     };
-
-    const pdfDataUri = generateEventInvoicePDF(data);
-    const link = document.createElement("a");
-    link.href = pdfDataUri;
-    link.download = `${inv.invoiceNumber}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  }, [businessName, currency]);
+    openPDF(generateEventInvoicePDF(data), `${inv.invoiceNumber}.pdf`);
+  }, [businessName, currency, openPDF]);
 
   if (loading) return <LoadingSpinner />;
 
