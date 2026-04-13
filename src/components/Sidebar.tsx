@@ -69,14 +69,14 @@ export default function Sidebar() {
 
   return (
     <>
-      {/* Mobile toggle */}
+      {/* Mobile toggle — always shows hamburger, X lives inside the sidebar */}
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => setIsOpen(true)}
         className="fixed top-4 left-4 z-50 p-2 rounded-xl lg:hidden"
         style={{ background: "var(--bg-card)", border: "1px solid var(--border-color)" }}
-        aria-label="Toggle menu"
+        aria-label="Open menu"
       >
-        {isOpen ? <X size={20} /> : <Menu size={20} />}
+        <Menu size={20} />
       </button>
 
       {/* Backdrop */}
@@ -106,19 +106,28 @@ export default function Sidebar() {
         {/* Logo */}
         <div className="flex items-center gap-3 px-6 py-6">
           <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center"
+            className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
             style={{ background: "var(--accent-gradient)" }}
           >
             <LogoIcon size={22} className="text-white" />
           </div>
-          <div>
-            <h1 className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-sm font-bold truncate" style={{ color: "var(--text-primary)" }}>
               {businessName || "Winery OS"}
             </h1>
             <p className="text-xs" style={{ color: "var(--text-muted)" }}>
               {subtitle}
             </p>
           </div>
+          {/* Close button — mobile only, sits at the right of the header */}
+          <button
+            onClick={() => setIsOpen(false)}
+            className="lg:hidden p-1.5 rounded-lg shrink-0"
+            style={{ color: "var(--text-muted)" }}
+            aria-label="Close menu"
+          >
+            <X size={18} />
+          </button>
         </div>
 
         {/* Navigation */}
