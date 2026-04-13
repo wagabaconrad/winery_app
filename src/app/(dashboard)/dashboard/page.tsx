@@ -83,9 +83,17 @@ export default function DashboardPage() {
     fetchDashboard();
   }, []);
 
-  const fetchDashboard = async () => {
+  const fetchDashboard = async (retries = 5) => {
     try {
       const res = await fetch("/api/dashboard");
+
+      // 401 means the Clerk webhook hasn't created the DB user yet.
+      // Retry up to 5 times (one per second) before giving up.
+      if (res.status === 401 && retries > 0) {
+        setTimeout(() => fetchDashboard(retries - 1), 1000);
+        return;
+      }
+
       if (res.status === 404) {
         setNeedsBusiness(true);
         setLoading(false);
@@ -93,7 +101,7 @@ export default function DashboardPage() {
       }
       const json = await res.json();
 
-      if (!res.ok && res.status !== 404) {
+      if (!res.ok) {
         console.error("Dashboard Error:", json.error, json.details, json.stack);
         setLoading(false);
         return;
@@ -101,7 +109,6 @@ export default function DashboardPage() {
 
       setData(json);
     } catch {
-      // No business yet
       setNeedsBusiness(true);
     } finally {
       setLoading(false);
