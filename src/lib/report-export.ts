@@ -18,7 +18,11 @@ export interface ReportData {
 // ─── Shared download helper ──────────────────────────────────────────────────
 
 export function triggerDownload(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
+  // Force octet-stream so iOS Safari downloads instead of opening inline (affects PDFs)
+  const downloadBlob = blob.type === "application/pdf"
+    ? new Blob([blob], { type: "application/octet-stream" })
+    : blob;
+  const url = URL.createObjectURL(downloadBlob);
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;

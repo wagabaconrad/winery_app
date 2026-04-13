@@ -84,7 +84,9 @@ export default function InvoicesPage() {
   }, []);
 
   const openPDF = useCallback((blob: Blob, filename: string) => {
-    const url = URL.createObjectURL(blob);
+    // Force octet-stream so iOS Safari downloads instead of opening inline
+    const downloadBlob = new Blob([blob], { type: "application/octet-stream" });
+    const url = URL.createObjectURL(downloadBlob);
     const a = document.createElement("a");
     a.href = url;
     a.download = filename;
