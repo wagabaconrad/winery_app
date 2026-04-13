@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAuthenticatedUser } from "@/lib/auth";
+import { getAuthenticatedUser, invalidateAuthCache } from "@/lib/auth";
 
 export async function GET() {
   try {
@@ -55,6 +55,9 @@ export async function POST(request: NextRequest) {
         },
       });
     }
+
+    // Bust cache so next request sees the new business immediately
+    invalidateAuthCache(data.authUser.id);
 
     return NextResponse.json(business, { status: 201 });
   } catch (error) {

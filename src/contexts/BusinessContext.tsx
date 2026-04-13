@@ -29,16 +29,37 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
   const [businessId, setBusinessId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchBusiness = async () => {
+  const CACHE_KEY = "winery_biz_ctx";
+
+  const applyData = (biz: { businessType?: string; name?: string; currency?: string; id?: string }) => {
+    setBusinessType((biz.businessType as BusinessType) || "WINE");
+    setBusinessName(biz.name || "");
+    setCurrency(biz.currency || "UGX");
+    setBusinessId(biz.id || null);
+  };
+
+  const fetchBusiness = async (bust = false) => {
+    // Serve from sessionStorage when available — avoids a round-trip on every navigation
+    if (!bust) {
+      try {
+        const raw = sessionStorage.getItem(CACHE_KEY);
+        if (raw) {
+          applyData(JSON.parse(raw));
+          setLoading(false);
+          return;
+        }
+      } catch {
+        // sessionStorage unavailable (SSR guard)
+      }
+    }
+
     try {
       const res = await fetch("/api/business");
       if (res.ok) {
         const data = await res.json();
         if (data.business) {
-          setBusinessType(data.business.businessType || "WINE");
-          setBusinessName(data.business.name || "");
-          setCurrency(data.business.currency || "UGX");
-          setBusinessId(data.business.id || null);
+          applyData(data.business);
+          try { sessionStorage.setItem(CACHE_KEY, JSON.stringify(data.business)); } catch { /* ignore */ }
         }
       }
     } catch {
@@ -50,11 +71,11 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     fetchBusiness();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <BusinessContext.Provider
-      value={{ businessType, businessName, currency, businessId, loading, refresh: fetchBusiness }}
+      value={{ businessType, businessName, currency, businessId, loading, refresh: () => fetchBusiness(true) }}
     >
       {children}
     </BusinessContext.Provider>
