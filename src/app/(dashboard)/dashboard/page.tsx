@@ -71,6 +71,7 @@ export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [needsBusiness, setNeedsBusiness] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [businessName, setBusinessName] = useState("");
   const [currency, setCurrency] = useState("UGX");
   const [openingCapital, setOpeningCapital] = useState("");
@@ -84,8 +85,11 @@ export default function DashboardPage() {
   }, []);
 
   const fetchDashboard = async (retries = 5) => {
+    setLoadError(null);
     try {
-      const res = await fetch("/api/dashboard");
+      // no-store: pull-to-refresh on mobile was serving a stale 401 from the HTTP cache,
+      // which surfaced as a blank screen after a successful re-login.
+      const res = await fetch("/api/dashboard", { cache: "no-store" });
 
       // 401 means the Clerk webhook hasn't created the DB user yet.
       // Retry up to 5 times (one per second) before giving up.
@@ -99,17 +103,20 @@ export default function DashboardPage() {
         setLoading(false);
         return;
       }
-      const json = await res.json();
+      const json = await res.json().catch(() => ({}));
 
       if (!res.ok) {
         console.error("Dashboard Error:", json.error, json.details, json.stack);
+        setLoadError(json.error || `Failed to load dashboard (HTTP ${res.status})`);
         setLoading(false);
         return;
       }
 
       setData(json);
-    } catch {
-      setNeedsBusiness(true);
+    } catch (err) {
+      // Network failure — do NOT assume the user has no business, that wipes their UI.
+      console.error("Dashboard network error:", err);
+      setLoadError("Network error — check your connection and retry.");
     } finally {
       setLoading(false);
     }
@@ -288,7 +295,32 @@ export default function DashboardPage() {
     );
   }
 
-  if (!data) return null;
+  if (!data) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div
+          className="rounded-2xl p-6 max-w-md w-full text-center"
+          style={{ background: "var(--bg-card)", border: "1px solid var(--border-color)" }}
+        >
+          <AlertTriangle size={32} className="mx-auto mb-3" style={{ color: "var(--warning)" }} />
+          <h3 className="text-sm font-semibold mb-2" style={{ color: "var(--text-primary)" }}>
+            Couldn&apos;t load your dashboard
+          </h3>
+          <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>
+            {loadError || "Something went wrong."}
+          </p>
+          <Button
+            onClick={() => {
+              setLoading(true);
+              fetchDashboard();
+            }}
+          >
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   const chartData = data.recentSales.map((s) => ({
     name: new Date(s.date).toLocaleDateString("en", { month: "short", day: "numeric" }),

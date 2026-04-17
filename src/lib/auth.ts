@@ -11,10 +11,16 @@ type CacheEntry = {
 const _authCache = new Map<string, CacheEntry>();
 const CACHE_TTL_MS = 60_000; // 60 seconds
 
+// Oldest business wins. Without orderBy, Postgres returns rows in undefined order,
+// so a user with >1 business would see their "active" business flicker between
+// requests — which manifested as sales/invoices "disappearing" while stock stayed
+// put (stock happened to be attached to the other businessId).
+const BUSINESSES_INCLUDE = { businesses: { orderBy: { createdAt: "asc" as const } } };
+
 async function _lookupUser(userId: string) {
   let user = await prisma.user.findUnique({
     where: { clerkId: userId },
-    include: { businesses: true },
+    include: BUSINESSES_INCLUDE,
   });
 
   if (!user) {
@@ -28,7 +34,7 @@ async function _lookupUser(userId: string) {
       user = await prisma.user.update({
         where: { email },
         data: { clerkId: userId },
-        include: { businesses: true },
+        include: BUSINESSES_INCLUDE,
       });
     } else {
       user = await prisma.user.create({
@@ -37,7 +43,7 @@ async function _lookupUser(userId: string) {
           email,
           fullName: `${clerkUser.firstName || ""} ${clerkUser.lastName || ""}`.trim() || null,
         },
-        include: { businesses: true },
+        include: BUSINESSES_INCLUDE,
       });
     }
   }
