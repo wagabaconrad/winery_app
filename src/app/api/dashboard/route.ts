@@ -12,14 +12,11 @@ export async function GET() {
 
     const businessType = data.business?.businessType || "WINE";
 
-    // Run all queries in parallel
-    const [capitalEntries, sales, expensesData, stockItems, recentSales, activeBatches, ...eventResults] =
+    // Core queries — same for every business type
+    const [capitalEntries, sales, expensesData, stockItems, recentSales, activeBatches] =
       await Promise.all([
         prisma.capitalEntry.findMany({ where: { businessId } }),
-        prisma.sale.findMany({
-          where: { businessId },
-          include: { items: true },
-        }),
+        prisma.sale.findMany({ where: { businessId }, include: { items: true } }),
         prisma.expense.findMany({ where: { businessId } }),
         prisma.stockItem.findMany({ where: { businessId } }),
         prisma.sale.findMany({
@@ -33,25 +30,6 @@ export async function GET() {
           orderBy: { createdAt: "desc" },
           take: 5,
         }),
-        // Food-specific queries
-        ...(businessType === "FOOD"
-          ? [
-              prisma.event.count({ where: { businessId, status: "DRAFT" } }),
-              prisma.event.count({ where: { businessId, status: "CONFIRMED" } }),
-              prisma.event.count({ where: { businessId, status: "COMPLETED" } }),
-              prisma.event.findMany({
-                where: { businessId, status: { in: ["DRAFT", "CONFIRMED"] } },
-                include: { customer: true },
-                orderBy: { createdAt: "desc" },
-                take: 5,
-              }),
-              // Sum of customer budgets for confirmed/completed events = event revenue
-              prisma.event.aggregate({
-                where: { businessId, status: { in: ["CONFIRMED", "COMPLETED"] } },
-                _sum: { customerBudget: true },
-              }),
-            ]
-          : []),
       ]);
 
     // Calculate total capital
@@ -60,7 +38,7 @@ export async function GET() {
       totalCapital += e.type === "WITHDRAWN" ? -e.amount : e.amount;
     }
 
-    // Calculate total revenue
+    // Calculate sales revenue + COGS
     let totalRevenue = 0;
     let totalCOGS = 0;
     for (const s of sales) {
@@ -74,26 +52,50 @@ export async function GET() {
       totalExpenses += e.amount;
     }
 
-    // For food businesses, add event revenue (customer budgets from confirmed/completed events).
-    // The event cost is already captured as an EVENT expense, so only the revenue side needs adding.
-    let eventRevenue = 0;
-    if (businessType === "FOOD" && eventResults.length === 5) {
-      const eventAggregate = eventResults[4] as { _sum: { customerBudget: number | null } };
-      eventRevenue = eventAggregate._sum.customerBudget || 0;
-    }
-
-    // Net profit = revenue - COGS - general expenses
-    const netProfit = totalRevenue + eventRevenue - totalCOGS - totalExpenses;
-
     // Stock summary
     let totalStockValue = 0;
-    for (const s of stockItems) {
-      totalStockValue += s.totalValue;
-    }
     const lowStockItems: typeof stockItems = [];
     for (const s of stockItems) {
+      totalStockValue += s.totalValue;
       if (s.quantity <= 5) lowStockItems.push(s);
     }
+
+    // Food-specific data — run a second await block so a failure here doesn't block wine dashboards
+    let draftEvents = 0;
+    let confirmedEvents = 0;
+    let completedEvents = 0;
+    let recentEvents: unknown[] = [];
+    let eventRevenue = 0;
+
+    if (businessType === "FOOD") {
+      try {
+        const [draft, confirmed, completed, recent, aggregate] = await Promise.all([
+          prisma.event.count({ where: { businessId, status: "DRAFT" } }),
+          prisma.event.count({ where: { businessId, status: "CONFIRMED" } }),
+          prisma.event.count({ where: { businessId, status: "COMPLETED" } }),
+          prisma.event.findMany({
+            where: { businessId, status: { in: ["DRAFT", "CONFIRMED"] } },
+            include: { customer: true },
+            orderBy: { createdAt: "desc" },
+            take: 5,
+          }),
+          prisma.event.aggregate({
+            where: { businessId, status: { in: ["CONFIRMED", "COMPLETED"] } },
+            _sum: { customerBudget: true },
+          }),
+        ]);
+        draftEvents = draft;
+        confirmedEvents = confirmed;
+        completedEvents = completed;
+        recentEvents = recent;
+        eventRevenue = aggregate._sum.customerBudget || 0;
+      } catch (e) {
+        console.error("Food event queries failed:", e);
+      }
+    }
+
+    // Net profit: sales revenue + event revenue (customer budgets) - COGS - expenses
+    const netProfit = totalRevenue + eventRevenue - totalCOGS - totalExpenses;
 
     const response: Record<string, unknown> = {
       totalCapital,
@@ -110,12 +112,11 @@ export async function GET() {
       businessType,
     };
 
-    // Add food-specific data
-    if (businessType === "FOOD" && eventResults.length === 5) {
-      response.draftEvents = eventResults[0] as number;
-      response.confirmedEvents = eventResults[1] as number;
-      response.completedEvents = eventResults[2] as number;
-      response.recentEvents = eventResults[3];
+    if (businessType === "FOOD") {
+      response.draftEvents = draftEvents;
+      response.confirmedEvents = confirmedEvents;
+      response.completedEvents = completedEvents;
+      response.recentEvents = recentEvents;
       response.eventRevenue = eventRevenue;
     }
 
