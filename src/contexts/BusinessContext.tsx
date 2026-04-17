@@ -1,7 +1,6 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { useUser } from "@clerk/nextjs";
 
 type BusinessType = "WINE" | "FOOD";
 
@@ -23,16 +22,16 @@ const BusinessContext = createContext<BusinessContextValue>({
   refresh: async () => {},
 });
 
+// sessionStorage keys
+const POINTER_KEY = "winery_active_biz";
+const bizCacheKey = (id: string) => `winery_biz_ctx_${id}`;
+
 export function BusinessProvider({ children }: { children: ReactNode }) {
-  const { user, isLoaded: userLoaded } = useUser();
   const [businessType, setBusinessType] = useState<BusinessType | null>(null);
   const [businessName, setBusinessName] = useState("");
   const [currency, setCurrency] = useState("UGX");
   const [businessId, setBusinessId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-
-  const getCacheKey = (uid: string | undefined) =>
-    uid ? `winery_biz_ctx_${uid}` : null;
 
   const applyData = (biz: { businessType?: string; name?: string; currency?: string; id?: string }) => {
     setBusinessType((biz.businessType as BusinessType) || "WINE");
@@ -41,17 +40,18 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
     setBusinessId(biz.id || null);
   };
 
-  const fetchBusiness = async (bust = false, uid?: string) => {
-    const cacheKey = getCacheKey(uid);
-
-    // Serve from sessionStorage when available — avoids a round-trip on every navigation
-    if (!bust && cacheKey) {
+  const fetchBusiness = async (bust = false) => {
+    if (!bust) {
       try {
-        const raw = sessionStorage.getItem(cacheKey);
-        if (raw) {
-          applyData(JSON.parse(raw));
-          setLoading(false);
-          return;
+        // Read the pointer to find which user's cache entry is active
+        const activeId = sessionStorage.getItem(POINTER_KEY);
+        if (activeId) {
+          const raw = sessionStorage.getItem(bizCacheKey(activeId));
+          if (raw) {
+            applyData(JSON.parse(raw));
+            setLoading(false);
+            return;
+          }
         }
       } catch {
         // sessionStorage unavailable (SSR guard)
@@ -64,8 +64,14 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
         const data = await res.json();
         if (data.business) {
           applyData(data.business);
-          if (cacheKey) {
-            try { sessionStorage.setItem(cacheKey, JSON.stringify(data.business)); } catch { /* ignore */ }
+          // Cache under business-scoped key so different users never share the same entry
+          if (data.business.id) {
+            try {
+              sessionStorage.setItem(POINTER_KEY, data.business.id);
+              sessionStorage.setItem(bizCacheKey(data.business.id), JSON.stringify(data.business));
+              // Clean up the old unscoped legacy key if it still exists
+              sessionStorage.removeItem("winery_biz_ctx");
+            } catch { /* ignore */ }
           }
         }
       }
@@ -77,15 +83,12 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    if (!userLoaded) return;
-    // Remove any legacy unscoped cache entry so stale data can't leak to new users
-    try { sessionStorage.removeItem("winery_biz_ctx"); } catch { /* ignore */ }
-    fetchBusiness(false, user?.id);
-  }, [userLoaded, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    fetchBusiness();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <BusinessContext.Provider
-      value={{ businessType, businessName, currency, businessId, loading, refresh: () => fetchBusiness(true, user?.id) }}
+      value={{ businessType, businessName, currency, businessId, loading, refresh: () => fetchBusiness(true) }}
     >
       {children}
     </BusinessContext.Provider>
