@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { useUser } from "@clerk/nextjs";
 
 type BusinessType = "WINE" | "FOOD";
 
@@ -23,13 +24,15 @@ const BusinessContext = createContext<BusinessContextValue>({
 });
 
 export function BusinessProvider({ children }: { children: ReactNode }) {
+  const { user, isLoaded: userLoaded } = useUser();
   const [businessType, setBusinessType] = useState<BusinessType | null>(null);
   const [businessName, setBusinessName] = useState("");
   const [currency, setCurrency] = useState("UGX");
   const [businessId, setBusinessId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const CACHE_KEY = "winery_biz_ctx";
+  const getCacheKey = (uid: string | undefined) =>
+    uid ? `winery_biz_ctx_${uid}` : null;
 
   const applyData = (biz: { businessType?: string; name?: string; currency?: string; id?: string }) => {
     setBusinessType((biz.businessType as BusinessType) || "WINE");
@@ -38,11 +41,13 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
     setBusinessId(biz.id || null);
   };
 
-  const fetchBusiness = async (bust = false) => {
+  const fetchBusiness = async (bust = false, uid?: string) => {
+    const cacheKey = getCacheKey(uid);
+
     // Serve from sessionStorage when available — avoids a round-trip on every navigation
-    if (!bust) {
+    if (!bust && cacheKey) {
       try {
-        const raw = sessionStorage.getItem(CACHE_KEY);
+        const raw = sessionStorage.getItem(cacheKey);
         if (raw) {
           applyData(JSON.parse(raw));
           setLoading(false);
@@ -59,7 +64,9 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
         const data = await res.json();
         if (data.business) {
           applyData(data.business);
-          try { sessionStorage.setItem(CACHE_KEY, JSON.stringify(data.business)); } catch { /* ignore */ }
+          if (cacheKey) {
+            try { sessionStorage.setItem(cacheKey, JSON.stringify(data.business)); } catch { /* ignore */ }
+          }
         }
       }
     } catch {
@@ -70,12 +77,15 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    fetchBusiness();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!userLoaded) return;
+    // Remove any legacy unscoped cache entry so stale data can't leak to new users
+    try { sessionStorage.removeItem("winery_biz_ctx"); } catch { /* ignore */ }
+    fetchBusiness(false, user?.id);
+  }, [userLoaded, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <BusinessContext.Provider
-      value={{ businessType, businessName, currency, businessId, loading, refresh: () => fetchBusiness(true) }}
+      value={{ businessType, businessName, currency, businessId, loading, refresh: () => fetchBusiness(true, user?.id) }}
     >
       {children}
     </BusinessContext.Provider>

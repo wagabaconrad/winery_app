@@ -151,6 +151,8 @@ export async function DELETE(
       return NextResponse.json({ error: "Only draft events can be deleted" }, { status: 400 });
     }
 
+    // Delete linked expenses before deleting the event
+    await prisma.expense.deleteMany({ where: { linkedEventId: id, businessId } });
     await prisma.event.delete({ where: { id } });
 
     return NextResponse.json({ success: true });

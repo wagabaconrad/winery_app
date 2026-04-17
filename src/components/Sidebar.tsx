@@ -44,10 +44,8 @@ const foodNavItems = [
   { href: "/capital", label: "Capital", icon: Wallet },
   { href: "/events", label: "Events", icon: CalendarDays },
   { href: "/customers", label: "Customers", icon: Users },
-  { href: "/sales", label: "Sales & POS", icon: ShoppingCart },
   { href: "/expenses", label: "Expenses", icon: Receipt },
   { href: "/invoices", label: "Invoices", icon: FileText },
-  { href: "/calculator", label: "Calculator", icon: Calculator },
   { href: "/reports", label: "Reports", icon: BarChart3 },
 ];
 
@@ -63,6 +61,7 @@ export default function Sidebar() {
   const subtitle = businessType === "FOOD" ? "Catering Intelligence" : "Business Intelligence";
 
   const handleLogout = async () => {
+    try { sessionStorage.clear(); } catch { /* ignore */ }
     await signOut();
     router.push("/sign-in");
   };

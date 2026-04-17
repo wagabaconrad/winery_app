@@ -287,17 +287,17 @@ export default function BatchesPage() {
                     <FlaskConical size={20} style={{ color: "var(--accent-secondary)" }} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{batch.name}</p>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <p className="text-sm font-semibold truncate" style={{ color: "var(--text-primary)" }}>{batch.name}</p>
                       {batch.status === "completed" && (
-                        <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ background: "rgba(16,185,129,0.15)", color: "#10b981" }}>Completed</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full font-medium shrink-0" style={{ background: "rgba(16,185,129,0.15)", color: "#10b981" }}>Completed</span>
                       )}
                     </div>
-                    <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                    <p className="text-xs truncate" style={{ color: "var(--text-muted)" }}>
                       {new Date(batch.createdAt).toLocaleDateString()} • {batch.outputQuantity} units
                     </p>
                   </div>
-                  <div className="text-right mr-2">
+                  <div className="text-right shrink-0">
                     <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Cost: {batch.totalCost.toLocaleString()}</p>
                     <p className="text-xs" style={{ color: "var(--accent-secondary)" }}>{batch.costPerUnit.toLocaleString()}/unit</p>
                   </div>
@@ -504,7 +504,7 @@ export default function BatchesPage() {
                 <button type="button" onClick={addExpense} className="text-xs font-medium" style={{ color: "var(--accent-secondary)" }}>+ Add Expense</button>
               </div>
               {form.expenses.map((exp, idx) => (
-                <div key={idx} className="grid grid-cols-3 gap-2 mb-2">
+                <div key={idx} className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-2">
                   <select value={exp.category} onChange={(e) => updateExpense(idx, "category", e.target.value)} className="px-3 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }}>
                     <option value="LABOR">Labor</option>
                     <option value="PACKAGING">Packaging</option>
@@ -513,7 +513,7 @@ export default function BatchesPage() {
                     <option value="OTHER">Other</option>
                   </select>
                   <input type="number" value={exp.amount} onChange={(e) => updateExpense(idx, "amount", e.target.value)} placeholder="Amount" min="0" className="px-3 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }} />
-                  <input type="text" value={exp.description} onChange={(e) => updateExpense(idx, "description", e.target.value)} placeholder="Note" className="px-3 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }} />
+                  <input type="text" value={exp.description} onChange={(e) => updateExpense(idx, "description", e.target.value)} placeholder="Note (optional)" className="col-span-2 sm:col-span-1 px-3 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }} />
                 </div>
               ))}
             </div>

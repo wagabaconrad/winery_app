@@ -45,6 +45,11 @@ export async function GET() {
                 orderBy: { createdAt: "desc" },
                 take: 5,
               }),
+              // Sum of customer budgets for confirmed/completed events = event revenue
+              prisma.event.aggregate({
+                where: { businessId, status: { in: ["CONFIRMED", "COMPLETED"] } },
+                _sum: { customerBudget: true },
+              }),
             ]
           : []),
       ]);
@@ -69,8 +74,16 @@ export async function GET() {
       totalExpenses += e.amount;
     }
 
+    // For food businesses, add event revenue (customer budgets from confirmed/completed events).
+    // The event cost is already captured as an EVENT expense, so only the revenue side needs adding.
+    let eventRevenue = 0;
+    if (businessType === "FOOD" && eventResults.length === 5) {
+      const eventAggregate = eventResults[4] as { _sum: { customerBudget: number | null } };
+      eventRevenue = eventAggregate._sum.customerBudget || 0;
+    }
+
     // Net profit = revenue - COGS - general expenses
-    const netProfit = totalRevenue - totalCOGS - totalExpenses;
+    const netProfit = totalRevenue + eventRevenue - totalCOGS - totalExpenses;
 
     // Stock summary
     let totalStockValue = 0;
@@ -84,7 +97,7 @@ export async function GET() {
 
     const response: Record<string, unknown> = {
       totalCapital,
-      totalRevenue,
+      totalRevenue: totalRevenue + eventRevenue,
       totalExpenses,
       totalCOGS,
       netProfit,
@@ -98,11 +111,12 @@ export async function GET() {
     };
 
     // Add food-specific data
-    if (businessType === "FOOD" && eventResults.length === 4) {
+    if (businessType === "FOOD" && eventResults.length === 5) {
       response.draftEvents = eventResults[0] as number;
       response.confirmedEvents = eventResults[1] as number;
       response.completedEvents = eventResults[2] as number;
       response.recentEvents = eventResults[3];
+      response.eventRevenue = eventRevenue;
     }
 
     return NextResponse.json(response);

@@ -49,6 +49,11 @@ interface EventDetail {
   invoices: EventInvoice[];
 }
 
+interface Customer {
+  id: string;
+  name: string;
+}
+
 const eventTypeLabels: Record<string, string> = {
   WEDDING: "Wedding", BIRTHDAY: "Birthday", CORPORATE: "Corporate",
   PARTY: "Party", FUNERAL: "Funeral", OTHER: "Other",
@@ -65,15 +70,33 @@ export default function EventDetailPage() {
   const { id } = useParams();
   const router = useRouter();
   const [event, setEvent] = useState<EventDetail | null>(null);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showBudgetModal, setShowBudgetModal] = useState(false);
   const [newBudget, setNewBudget] = useState("");
 
+  // Edit modal state
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editForm, setEditForm] = useState({
+    eventType: "WEDDING",
+    name: "",
+    customerId: "",
+    eventDate: "",
+    customerBudget: "",
+    plateCount: "",
+    notes: "",
+    items: [{ name: "", quantity: "", unit: "kg", unitCost: "" }],
+  });
+
   useEffect(() => {
-    fetchEvent();
-  }, [id]);
+    Promise.all([
+      fetchEvent(),
+      fetch("/api/customers").then((r) => r.json()).then((c) => setCustomers(Array.isArray(c) ? c : [])),
+    ]);
+  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchEvent = async () => {
     try {
@@ -85,6 +108,78 @@ export default function EventDetailPage() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const openEditModal = (ev: EventDetail) => {
+    setEditForm({
+      eventType: ev.eventType,
+      name: ev.name,
+      customerId: ev.customer?.id || "",
+      eventDate: ev.eventDate ? ev.eventDate.split("T")[0] : "",
+      customerBudget: String(ev.customerBudget),
+      plateCount: String(ev.plateCount),
+      notes: ev.notes || "",
+      items: ev.items.length > 0
+        ? ev.items.map((i) => ({
+            name: i.name,
+            quantity: String(i.quantity),
+            unit: i.unit,
+            unitCost: String(i.unitCost),
+          }))
+        : [{ name: "", quantity: "", unit: "kg", unitCost: "" }],
+    });
+    setShowEditModal(true);
+  };
+
+  const addEditItem = () => {
+    setEditForm({ ...editForm, items: [...editForm.items, { name: "", quantity: "", unit: "kg", unitCost: "" }] });
+  };
+
+  const updateEditItem = (idx: number, field: string, value: string) => {
+    const items = [...editForm.items];
+    (items[idx] as Record<string, string>)[field] = value;
+    setEditForm({ ...editForm, items });
+  };
+
+  const removeEditItem = (idx: number) => {
+    if (editForm.items.length <= 1) return;
+    setEditForm({ ...editForm, items: editForm.items.filter((_, i) => i !== idx) });
+  };
+
+  const editTotalCost = editForm.items.reduce((sum, item) => {
+    return sum + (parseFloat(item.quantity) || 0) * (parseFloat(item.unitCost) || 0);
+  }, 0);
+  const editBudgetRemaining = (parseFloat(editForm.customerBudget) || 0) - editTotalCost;
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEditSaving(true);
+    try {
+      const validItems = editForm.items.filter((i) => i.name && i.quantity);
+      const res = await fetch(`/api/events/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventType: editForm.eventType,
+          name: editForm.name,
+          customerId: editForm.customerId || null,
+          eventDate: editForm.eventDate || null,
+          customerBudget: editForm.customerBudget,
+          plateCount: editForm.plateCount,
+          notes: editForm.notes || null,
+          items: validItems,
+        }),
+      });
+      if (res.ok) {
+        await fetchEvent();
+        setShowEditModal(false);
+      } else {
+        const err = await res.json();
+        alert(err.error || "Failed to update event");
+      }
+    } finally {
+      setEditSaving(false);
     }
   };
 
@@ -160,7 +255,7 @@ export default function EventDetailPage() {
         <div className="flex gap-2">
           {event.status === "DRAFT" && (
             <>
-              <Button onClick={() => router.push(`/events`)} variant="secondary" size="sm">
+              <Button onClick={() => openEditModal(event)} variant="secondary" size="sm">
                 <Edit3 size={14} /> Edit
               </Button>
               <Button onClick={() => setShowConfirmDialog(true)} size="sm">
@@ -331,6 +426,123 @@ export default function EventDetailPage() {
           </div>
           <Button type="submit" loading={acting} className="w-full">
             Update Budget
+          </Button>
+        </form>
+      </Modal>
+
+      {/* Edit Event Modal (DRAFT only) */}
+      <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} title="Edit Event" maxWidth="640px">
+        <form onSubmit={handleEditSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="block text-xs font-medium" style={{ color: "var(--text-secondary)" }}>Event Type</label>
+              <select value={editForm.eventType} onChange={(e) => setEditForm({ ...editForm, eventType: e.target.value })} className="w-full px-4 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }}>
+                <option value="WEDDING">Wedding</option>
+                <option value="BIRTHDAY">Birthday</option>
+                <option value="CORPORATE">Corporate</option>
+                <option value="PARTY">Party</option>
+                <option value="FUNERAL">Funeral</option>
+                <option value="OTHER">Other</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="block text-xs font-medium" style={{ color: "var(--text-secondary)" }}>Event Name</label>
+              <input type="text" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} required className="w-full px-4 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="block text-xs font-medium" style={{ color: "var(--text-secondary)" }}>Customer</label>
+              <select value={editForm.customerId} onChange={(e) => setEditForm({ ...editForm, customerId: e.target.value })} className="w-full px-4 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }}>
+                <option value="">Select customer</option>
+                {customers.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="block text-xs font-medium" style={{ color: "var(--text-secondary)" }}>Event Date</label>
+              <input type="date" value={editForm.eventDate} onChange={(e) => setEditForm({ ...editForm, eventDate: e.target.value })} className="w-full px-4 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="block text-xs font-medium" style={{ color: "var(--text-secondary)" }}>Customer Budget</label>
+              <input type="number" value={editForm.customerBudget} onChange={(e) => setEditForm({ ...editForm, customerBudget: e.target.value })} placeholder="0" min="0" className="w-full px-4 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }} />
+            </div>
+            <div className="space-y-1.5">
+              <label className="block text-xs font-medium" style={{ color: "var(--text-secondary)" }}>Number of Plates</label>
+              <input type="number" value={editForm.plateCount} onChange={(e) => setEditForm({ ...editForm, plateCount: e.target.value })} placeholder="0" min="0" className="w-full px-4 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }} />
+            </div>
+          </div>
+
+          {/* Items */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>Items Purchased</p>
+              <button type="button" onClick={addEditItem} className="text-xs font-medium" style={{ color: "var(--accent-secondary)" }}>+ Add Item</button>
+            </div>
+            {editForm.items.map((item, idx) => (
+              <div key={idx} className="mb-2">
+                {/* Mobile layout */}
+                <div className="sm:hidden space-y-1.5">
+                  <input type="text" value={item.name} onChange={(e) => updateEditItem(idx, "name", e.target.value)} placeholder="e.g. Chicken" className="w-full px-3 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }} />
+                  <div className="flex gap-1.5 items-center">
+                    <input type="number" value={item.quantity} onChange={(e) => updateEditItem(idx, "quantity", e.target.value)} placeholder="Qty" min="0" step="any" className="w-1/5 px-2 py-2 rounded-xl text-xs outline-none text-center" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }} />
+                    <select value={item.unit} onChange={(e) => updateEditItem(idx, "unit", e.target.value)} className="w-1/5 px-1 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }}>
+                      <option value="kg">kg</option>
+                      <option value="pieces">pcs</option>
+                      <option value="liters">L</option>
+                      <option value="units">units</option>
+                      <option value="packs">packs</option>
+                    </select>
+                    <input type="number" value={item.unitCost} onChange={(e) => updateEditItem(idx, "unitCost", e.target.value)} placeholder="Unit cost" min="0" step="any" className="flex-1 px-2 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }} />
+                    {editForm.items.length > 1 && (
+                      <button type="button" onClick={() => removeEditItem(idx)} className="text-xs px-2 py-2 rounded-lg shrink-0" style={{ color: "var(--danger)" }}>✕</button>
+                    )}
+                  </div>
+                </div>
+                {/* Desktop layout */}
+                <div className="hidden sm:grid sm:grid-cols-[1fr_0.6fr_0.5fr_0.6fr_auto] gap-2 items-center">
+                  <input type="text" value={item.name} onChange={(e) => updateEditItem(idx, "name", e.target.value)} placeholder="e.g. Chicken" className="px-3 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }} />
+                  <input type="number" value={item.quantity} onChange={(e) => updateEditItem(idx, "quantity", e.target.value)} placeholder="Qty" min="0" step="any" className="px-3 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }} />
+                  <select value={item.unit} onChange={(e) => updateEditItem(idx, "unit", e.target.value)} className="px-2 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }}>
+                    <option value="kg">kg</option>
+                    <option value="pieces">pcs</option>
+                    <option value="liters">L</option>
+                    <option value="units">units</option>
+                    <option value="packs">packs</option>
+                  </select>
+                  <input type="number" value={item.unitCost} onChange={(e) => updateEditItem(idx, "unitCost", e.target.value)} placeholder="Cost" min="0" step="any" className="px-3 py-2 rounded-xl text-xs outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }} />
+                  {editForm.items.length > 1 && (
+                    <button type="button" onClick={() => removeEditItem(idx)} className="text-xs px-2 py-2 rounded-lg" style={{ color: "var(--danger)" }}>✕</button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Summary */}
+          <div className="rounded-xl p-3 space-y-1" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)" }}>
+            <div className="flex justify-between text-xs">
+              <span style={{ color: "var(--text-muted)" }}>Total Cost</span>
+              <span className="font-medium" style={{ color: "var(--text-primary)" }}>{editTotalCost.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span style={{ color: "var(--text-muted)" }}>Budget Remaining</span>
+              <span className="font-semibold" style={{ color: editBudgetRemaining >= 0 ? "var(--success)" : "var(--danger)" }}>
+                {editBudgetRemaining.toLocaleString()}
+              </span>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="block text-xs font-medium" style={{ color: "var(--text-secondary)" }}>Notes (optional)</label>
+            <input type="text" value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} placeholder="Additional notes..." className="w-full px-4 py-2.5 rounded-xl text-sm outline-none" style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--text-primary)" }} />
+          </div>
+
+          <Button type="submit" loading={editSaving} className="w-full">
+            Save Changes
           </Button>
         </form>
       </Modal>

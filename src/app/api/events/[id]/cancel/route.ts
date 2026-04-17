@@ -24,6 +24,11 @@ export async function POST(
       return NextResponse.json({ error: "Cannot cancel a completed or already cancelled event" }, { status: 400 });
     }
 
+    // Delete linked expenses so cancelled event costs don't skew profit reports
+    await prisma.expense.deleteMany({
+      where: { linkedEventId: id, businessId },
+    });
+
     const updated = await prisma.event.update({
       where: { id },
       data: { status: "CANCELLED" },
