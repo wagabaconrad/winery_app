@@ -26,10 +26,6 @@ const nextConfig: NextConfig = {
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           // Restrict browser features
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
-          // Allow Clerk popup windows (OAuth flows) but isolate the browsing context
-          { key: "Cross-Origin-Opener-Policy", value: "same-origin-allow-popups" },
-          // Prevent this site's resources from being loaded cross-origin
-          { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
           // Legacy XSS filter for older browsers
           { key: "X-XSS-Protection", value: "1; mode=block" },
           // Content Security Policy
