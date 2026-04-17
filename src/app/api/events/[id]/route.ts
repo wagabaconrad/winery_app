@@ -84,12 +84,26 @@ export async function PUT(
 
     const calculatedPlateCost = parsedPlateCount > 0 ? Math.round((totalCost / parsedPlateCount) * 100) / 100 : parseFloat(plateCost) || event.plateCost;
 
+    // Verify customerId belongs to this business if provided
+    let nextCustomerId: string | null | undefined = undefined;
+    if (customerId !== undefined) {
+      if (customerId) {
+        const customer = await prisma.customer.findFirst({
+          where: { id: customerId, businessId },
+          select: { id: true },
+        });
+        nextCustomerId = customer?.id || null;
+      } else {
+        nextCustomerId = null;
+      }
+    }
+
     const updated = await prisma.event.update({
       where: { id },
       data: {
         ...(event.status === "DRAFT" && eventType ? { eventType } : {}),
         ...(name ? { name } : {}),
-        customerId: customerId !== undefined ? (customerId || null) : undefined,
+        customerId: nextCustomerId,
         eventDate: eventDate ? new Date(eventDate) : event.eventDate,
         customerBudget: parsedBudget,
         plateCost: calculatedPlateCost,

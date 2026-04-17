@@ -57,6 +57,16 @@ export async function POST(request: NextRequest) {
     const parsedBudget = parseFloat(customerBudget) || 0;
     const parsedPlateCount = parseInt(plateCount) || 0;
 
+    // Validate customerId belongs to this business (tenant isolation + protect against stale/bogus IDs)
+    let verifiedCustomerId: string | null = null;
+    if (customerId) {
+      const customer = await prisma.customer.findFirst({
+        where: { id: customerId, businessId },
+        select: { id: true },
+      });
+      verifiedCustomerId = customer?.id || null;
+    }
+
     // Calculate total cost from items
     let totalCost = 0;
     const validItems = (items || []).map((item: { name: string; quantity: number; unit: string; unitCost: number }) => {
@@ -72,7 +82,7 @@ export async function POST(request: NextRequest) {
     const event = await prisma.event.create({
       data: {
         businessId,
-        customerId: customerId || null,
+        customerId: verifiedCustomerId,
         eventType,
         name,
         eventDate: eventDate ? new Date(eventDate) : null,

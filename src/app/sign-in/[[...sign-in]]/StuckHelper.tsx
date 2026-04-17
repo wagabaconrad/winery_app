@@ -12,17 +12,22 @@ export default function SignInStuckHelper() {
 
   if (!showHelp) return null;
 
+  const handleReset = async () => {
+    await fetch("/api/auth/reset", { method: "POST" });
+    window.location.href = "/sign-in";
+  };
+
   return (
     <div className="mt-6 text-center animate-fade-in">
       <p className="text-xs" style={{ color: "#9898a8" }}>
         Sign-in form not loading?{" "}
-        <a
-          href="/api/auth/reset"
+        <button
+          onClick={handleReset}
           className="underline font-medium"
           style={{ color: "#a78bfa" }}
         >
           Reset session & try again
-        </a>
+        </button>
       </p>
     </div>
   );

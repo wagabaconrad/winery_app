@@ -50,8 +50,8 @@ export default function InvoicesPage() {
 
   useEffect(() => {
     const fetches = [
-      fetch("/api/invoices").then((r) => r.json()),
-      fetch("/api/business").then((r) => r.json()),
+      fetch("/api/invoices", { cache: "no-store" }).then((r) => r.json()),
+      fetch("/api/business", { cache: "no-store" }).then((r) => r.json()),
     ];
 
     Promise.all(fetches).then(([inv, biz]) => {
@@ -61,7 +61,7 @@ export default function InvoicesPage() {
         setCurrency(biz.business.currency);
         // If food business, fetch event invoices
         if (biz.business.businessType === "FOOD") {
-          fetch("/api/events")
+          fetch("/api/events", { cache: "no-store" })
             .then((r) => r.json())
             .then((events) => {
               if (Array.isArray(events)) {

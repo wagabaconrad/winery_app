@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { motion } from "framer-motion";
-import { ShoppingCart, Zap, UserPlus, Package, Search, X } from "lucide-react";
+import { ShoppingCart, Zap, UserPlus, Package, Search, X, Receipt } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import Modal from "@/components/Modal";
 import { Button, LoadingSpinner, EmptyState } from "@/components/ui";
+import { generateSaleReceipt } from "@/lib/receipt-pdf";
 
 interface SaleItem {
   productName: string;
@@ -51,6 +52,8 @@ export default function SalesPage() {
   const [showCustomerModal, setShowCustomerModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savingCustomer, setSavingCustomer] = useState(false);
+  const [businessName, setBusinessName] = useState("My Business");
+  const [currency, setCurrency] = useState("UGX");
 
   // Product picker popup
   const [showPicker, setShowPicker] = useState(false);
@@ -68,14 +71,39 @@ export default function SalesPage() {
       fetch("/api/sales").then((r) => r.json()),
       fetch("/api/customers").then((r) => r.json()),
       fetch("/api/stock").then((r) => r.json()),
-    ]).then(([s, c, stock]) => {
+      fetch("/api/business", { cache: "no-store" }).then((r) => r.json()),
+    ]).then(([s, c, stock, biz]) => {
       setSales(Array.isArray(s) ? s : []);
       setCustomers(Array.isArray(c) ? c : []);
       const finished = Array.isArray(stock) ? stock.filter((i: StockItem) => i.category === "FINISHED") : [];
       setFinishedStock(finished);
+      if (biz?.business) {
+        setBusinessName(biz.business.name || "My Business");
+        setCurrency(biz.business.currency || "UGX");
+      }
       setLoading(false);
     });
   }, []);
+
+  const downloadReceipt = useCallback((sale: Sale) => {
+    const blob = generateSaleReceipt({
+      receiptNumber: sale.invoice?.invoiceNumber ? `RCP-${sale.invoice.invoiceNumber}` : `RCP-${sale.id.slice(0, 8).toUpperCase()}`,
+      businessName,
+      businessCurrency: currency,
+      customerName: sale.customer?.name || "Walk-in Customer",
+      date: new Date(sale.date).toLocaleDateString(),
+      items: sale.items,
+      totalAmount: sale.totalAmount,
+    });
+    const url = URL.createObjectURL(new Blob([blob], { type: "application/octet-stream" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `receipt-${sale.invoice?.invoiceNumber || sale.id.slice(0, 8)}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 5_000);
+  }, [businessName, currency]);
 
   const addItem = () => {
     setItems([...items, { productName: "", quantity: "", unitPrice: "", unitCost: "", stockItemId: "" }]);
@@ -229,6 +257,14 @@ export default function SalesPage() {
                   {new Date(sale.date).toLocaleDateString()}
                 </p>
               </div>
+              <button
+                onClick={() => downloadReceipt(sale)}
+                className="p-2 rounded-xl shrink-0 transition-all"
+                style={{ background: "var(--bg-primary)", border: "1px solid var(--border-color)", color: "var(--accent-secondary)" }}
+                title="Download Receipt"
+              >
+                <Receipt size={15} />
+              </button>
             </motion.div>
           ))}
         </div>

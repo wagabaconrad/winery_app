@@ -69,8 +69,8 @@ export default function EventsPage() {
 
   useEffect(() => {
     Promise.all([
-      fetch("/api/events").then((r) => r.json()),
-      fetch("/api/customers").then((r) => r.json()),
+      fetch("/api/events", { cache: "no-store" }).then((r) => r.json()),
+      fetch("/api/customers", { cache: "no-store" }).then((r) => r.json()),
     ]).then(([e, c]) => {
       setEvents(Array.isArray(e) ? e : []);
       setCustomers(Array.isArray(c) ? c : []);
@@ -120,7 +120,7 @@ export default function EventsPage() {
           customerBudget: "", plateCount: "", notes: "",
           items: [{ name: "", quantity: "", unit: "kg", unitCost: "" }],
         });
-        const updated = await fetch("/api/events").then((r) => r.json());
+        const updated = await fetch("/api/events", { cache: "no-store" }).then((r) => r.json());
         setEvents(Array.isArray(updated) ? updated : []);
       } else {
         const err = await res.json();

@@ -37,6 +37,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "At least one item is required" }, { status: 400 });
     }
 
+    // Verify customerId belongs to this business (prevent cross-tenant linkage)
+    let verifiedCustomerId: string | null = null;
+    if (customerId) {
+      const customer = await prisma.customer.findFirst({
+        where: { id: customerId, businessId },
+        select: { id: true },
+      });
+      verifiedCustomerId = customer?.id || null;
+    }
+
     // Calculate totals
     let totalAmount = 0;
     let totalCOGS = 0;
@@ -77,7 +87,7 @@ export async function POST(request: NextRequest) {
       const newSale = await tx.sale.create({
         data: {
           businessId,
-          customerId: customerId || null,
+          customerId: verifiedCustomerId,
           totalAmount,
           costOfGoods: totalCOGS,
           profit,

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
@@ -11,9 +11,11 @@ import {
   FileText,
   Edit3,
   DollarSign,
+  Receipt,
 } from "lucide-react";
 import { Button, LoadingSpinner } from "@/components/ui";
 import Modal from "@/components/Modal";
+import { generateEventReceipt } from "@/lib/receipt-pdf";
 
 interface EventItem {
   id: string;
@@ -76,6 +78,8 @@ export default function EventDetailPage() {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showBudgetModal, setShowBudgetModal] = useState(false);
   const [newBudget, setNewBudget] = useState("");
+  const [businessName, setBusinessName] = useState("My Business");
+  const [currency, setCurrency] = useState("UGX");
 
   // Edit modal state
   const [showEditModal, setShowEditModal] = useState(false);
@@ -94,13 +98,19 @@ export default function EventDetailPage() {
   useEffect(() => {
     Promise.all([
       fetchEvent(),
-      fetch("/api/customers").then((r) => r.json()).then((c) => setCustomers(Array.isArray(c) ? c : [])),
+      fetch("/api/customers", { cache: "no-store" }).then((r) => r.json()).then((c) => setCustomers(Array.isArray(c) ? c : [])),
+      fetch("/api/business", { cache: "no-store" }).then((r) => r.json()).then((biz) => {
+        if (biz?.business) {
+          setBusinessName(biz.business.name || "My Business");
+          setCurrency(biz.business.currency || "UGX");
+        }
+      }),
     ]);
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchEvent = async () => {
     try {
-      const res = await fetch(`/api/events/${id}`);
+      const res = await fetch(`/api/events/${id}`, { cache: "no-store" });
       if (res.ok) {
         setEvent(await res.json());
       } else {
@@ -222,6 +232,29 @@ export default function EventDetailPage() {
     }
   };
 
+  const downloadReceipt = useCallback((ev: EventDetail) => {
+    const latestInvoice = ev.invoices[0];
+    const blob = generateEventReceipt({
+      receiptNumber: latestInvoice ? `RCP-${latestInvoice.invoiceNumber}` : `RCP-${ev.id.slice(0, 8).toUpperCase()}`,
+      businessName,
+      businessCurrency: currency,
+      customerName: ev.customer?.name || "Valued Customer",
+      eventName: ev.name,
+      eventDate: ev.eventDate ? new Date(ev.eventDate).toLocaleDateString() : "TBD",
+      date: new Date().toLocaleDateString(),
+      plateCount: ev.plateCount,
+      totalBudget: ev.customerBudget,
+    });
+    const url = URL.createObjectURL(new Blob([blob], { type: "application/octet-stream" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `receipt-${ev.name.replace(/\s+/g, "-").toLowerCase()}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 5_000);
+  }, [businessName, currency]);
+
   if (loading) return <LoadingSpinner />;
   if (!event) return null;
 
@@ -271,6 +304,9 @@ export default function EventDetailPage() {
               <Button onClick={() => { setNewBudget(String(event.customerBudget)); setShowBudgetModal(true); }} variant="secondary" size="sm">
                 <DollarSign size={14} /> Edit Budget
               </Button>
+              <Button onClick={() => downloadReceipt(event)} variant="secondary" size="sm">
+                <Receipt size={14} /> Receipt
+              </Button>
               <Button onClick={() => handleAction("complete")} size="sm" loading={acting}>
                 <CheckCircle2 size={14} /> Mark Complete
               </Button>
@@ -278,6 +314,11 @@ export default function EventDetailPage() {
                 <XCircle size={14} /> Cancel
               </Button>
             </>
+          )}
+          {event.status === "COMPLETED" && (
+            <Button onClick={() => downloadReceipt(event)} variant="secondary" size="sm">
+              <Receipt size={14} /> Download Receipt
+            </Button>
           )}
         </div>
       </div>

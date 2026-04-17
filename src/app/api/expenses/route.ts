@@ -33,13 +33,28 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { category, description, amount, linkedBatchId } = body;
 
-    if (!category || !amount) {
-      return NextResponse.json({ error: "Category and amount are required" }, { status: 400 });
+    const VALID_CATEGORIES = ["TRANSPORT", "RENT", "LABOR", "PACKAGING", "UTILITIES", "MARKETING", "EVENT", "OTHER"];
+    if (!category || !VALID_CATEGORIES.includes(category)) {
+      return NextResponse.json({ error: "Invalid or missing category" }, { status: 400 });
+    }
+
+    if (!amount) {
+      return NextResponse.json({ error: "Amount is required" }, { status: 400 });
     }
 
     const parsedAmount = parseFloat(amount);
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
       return NextResponse.json({ error: "Amount must be a positive number" }, { status: 400 });
+    }
+
+    // Verify linkedBatchId belongs to this business (prevent cross-tenant linkage)
+    let verifiedBatchId: string | null = null;
+    if (linkedBatchId) {
+      const batch = await prisma.productionBatch.findFirst({
+        where: { id: linkedBatchId, businessId },
+        select: { id: true },
+      });
+      verifiedBatchId = batch?.id || null;
     }
 
     const expense = await prisma.expense.create({
@@ -48,7 +63,7 @@ export async function POST(request: NextRequest) {
         category,
         description: description || null,
         amount: parsedAmount,
-        linkedBatchId: linkedBatchId || null,
+        linkedBatchId: verifiedBatchId,
       },
       include: { linkedBatch: true },
     });
